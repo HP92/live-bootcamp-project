@@ -1,8 +1,12 @@
 use std::error::Error;
 
+
+use axum::routing::post;
 use axum::serve::Serve;
 use axum::Router;
 use tower_http::services::ServeDir;
+
+pub mod routes;
 
 pub struct Application {
     server: Serve<Router, Router>,
@@ -13,7 +17,12 @@ pub struct Application {
 impl Application {
     pub async fn build(address: &str) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
-        .nest_service("/", ServeDir::new("assets"));
+        .nest_service("/", ServeDir::new("assets"))
+        .route("/signup", post(routes::signup))
+        .route("/login", post(routes::login))
+        .route("/logout", post(routes::logout))
+        .route("/verify-2fa", post(routes::verify_2fa))
+        .route("/verify-token", post(routes::verify_token));
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -32,3 +41,13 @@ impl Application {
         self.server.await
     }
 }
+
+
+
+
+
+
+
+
+
+
