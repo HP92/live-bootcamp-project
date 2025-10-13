@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, domain::User};
+use crate::{domain::{AuthAPIError, User}, AppState};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignupRequest {
@@ -21,25 +21,24 @@ pub struct SignupResponse {
 pub async fn signup(
     State(state): State<Arc<AppState>>,
     Json(request): Json<SignupRequest>
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, AuthAPIError> {
     let user = User::new(request.email, request.password, request.requires_2fa);
     let mut user_store = state.user_store.write().await;
 
-    let response;
-    let status_code;
-    if let Ok(_result) = user_store.add_user(user) {
-        response = Json(SignupResponse {
-            message: "User created successfully".to_string()
-        });
-        status_code = StatusCode::CREATED;
+    let result;
+    if user.validate_email() && user.validate_password() {
+        if let Ok(_result) = user_store.add_user(user) {
+            let response = Json(SignupResponse {
+                message: "User created successfully".to_string()
+            });
+            let status_code = StatusCode::CREATED;
+            result = Ok((status_code, response))
+        } else {
+            result = Err(AuthAPIError::UserAlreadyExists)
+        }
     } else {
-        response = Json(SignupResponse {
-            message: "User already exist".to_string()
-        });
-        status_code = StatusCode::CONFLICT;
+        result = Err(AuthAPIError::InvalidCredentials)
     }
 
-    println!("Response #{:?}  #{:?}", response, status_code);
-
-    (status_code, response)
+    result
 }
