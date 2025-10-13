@@ -1,23 +1,38 @@
+use auth_service::routes::SignupResponse;
+
 use crate::helpers::{TestApp, get_random_email};
 
-// TODO: Fix to throw 200
-// #[tokio::test]
-// async fn signup_returns_200(){
-//     let app = TestApp::new().await;
-//     let random_email = get_random_email();
-//     let test_case = 
-//         &serde_json::json!(
-//             {
-//                 "email": random_email,
-//                 "password": "asdf1234",
-//                 "requires2FA": true
-//             }
-//         );
 
-//     let response = app.post_signup(test_case).await;
+#[tokio::test]
+async fn signup_returns_201_if_valid_input(){
+    let test_case = 
+        serde_json::json!(
+            {
+                "email": "test@example.com",
+                "password": "password123",
+                "requires2FA": true
+            }
+        );
+    let app = TestApp::new().await;
+    let response = app.post_signup(&test_case).await;    
 
-//     assert_eq!(response.status().as_u16(), 200, "Failed for input: {:?}", test_case);
-// }
+    println!("The response in the test #{:?}", response);
+
+    assert_eq!(response.status().as_u16(), 201);
+
+    let expected_response = SignupResponse {
+        message: "User created successfully".to_owned(),
+    };
+
+   
+    assert_eq!(
+        response
+            .json::<SignupResponse>()
+            .await
+            .expect("Could not deserialize response body to UserBody"),
+        expected_response
+    );
+}
 
 #[tokio::test]
 async fn signup_returns_422_if_malformed_input(){
@@ -48,7 +63,7 @@ async fn signup_returns_422_if_malformed_input(){
         let response = app.post_signup(test_case).await;
         assert_eq!(
             response.status().as_u16(),
-            400,
+            422,
             "Failed for input: {:?}",
             test_case
         );
