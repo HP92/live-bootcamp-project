@@ -14,10 +14,10 @@ impl UserStore for HashmapUserStore {
 
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let result; 
-        if self.get_user(&user.email).await.is_ok() {
+        if self.get_user(&user.email.as_ref().unwrap().value().to_string()).await.is_ok() {
             result = Err(UserStoreError::UserAlreadyExists);
         } else {
-            self.users.insert(user.email.to_string(), user);
+            self.users.insert(user.email.as_ref().unwrap().value().to_string(), user);
             result = Ok(())
         }
         result
@@ -37,7 +37,7 @@ impl UserStore for HashmapUserStore {
     async fn validate_user(&self, email: &String, password: &String) -> Result<(), UserStoreError> {
         let result;
         if let Ok(user) = self.get_user(email).await {
-            if password == &user.password {
+            if password == &user.password.as_ref().unwrap().value() {
                 result = Ok(())
             } else {
                 result = Err(UserStoreError::InvalidCredentials)
@@ -51,16 +51,19 @@ impl UserStore for HashmapUserStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::User;
+    use crate::domain::{Email, User, Password};
     use crate::services::hashmap_user_store::{HashmapUserStore, UserStoreError};
     use crate::domain::UserStore;
+
+    const TEST_EMAIL: &str = "test@example.com";
+    const TEST_PASSWORD: &str = "Asdf1234";
 
     #[tokio::test]
     async fn test_add_user(){
         let mut test_subject = HashmapUserStore::new();
         let input = User::new(
-            "test@example.com".to_owned(), 
-            "Adsdf1234".to_owned(), 
+            Email::parse(&TEST_EMAIL),
+            Password::parse(&TEST_PASSWORD), 
             true);
         
         let result = test_subject.add_user(input).await;
@@ -72,14 +75,14 @@ mod tests {
     async fn test_adding_same_user_and_expect_error() {
         let mut test_subject = HashmapUserStore::new();
         let input = User::new(
-            "test@example.com".to_owned(), 
-            "Adsdf1234".to_owned(), 
+            Email::parse(&TEST_EMAIL), 
+            Password::parse(&TEST_PASSWORD), 
             true);
         let _ = test_subject.add_user(input).await;
 
         let input2 = User::new(
-            "test@example.com".to_owned(), 
-            "Adsdf1234".to_owned(), 
+            Email::parse(&TEST_EMAIL), 
+            Password::parse(&TEST_PASSWORD), 
             true);
         let result = test_subject.add_user(input2).await;
 
@@ -91,8 +94,8 @@ mod tests {
     async fn test_get_user(){
         let mut test_subject = HashmapUserStore::new();
         let input = User::new(
-            "test@example.com".to_owned(), 
-            "Adsdf1234".to_owned(), 
+            Email::parse(&TEST_EMAIL),
+            Password::parse(&TEST_PASSWORD),
             true);
 
         let _ = test_subject.add_user(input).await;
@@ -116,18 +119,20 @@ mod tests {
     async fn test_validate_user(){
         let mut test_subject = HashmapUserStore::new();
         let input = User::new(
-            "test@example.com".to_owned(), 
-            "Asdef1234".to_owned(), 
+            Email::parse(&TEST_EMAIL),
+            Password::parse(&TEST_PASSWORD),
             true);
         
         let _ = test_subject.add_user(input).await;
 
         let user_email = "test@example.com".to_owned();
-        let user_password = "Asdef1234".to_owned();
+        let user_password = "Asdf1234".to_owned();
         let result = test_subject.validate_user(
             &user_email, 
             &user_password
         ).await;
+
+        println!("#{:?}",result);
 
         assert!(result.is_ok());
     }
@@ -136,8 +141,8 @@ mod tests {
     async fn test_validate_user_with_invalid_password(){
         let mut test_subject = HashmapUserStore::new();
         let input = User::new(
-            "test@example.com".to_owned(), 
-            "Adsdf1234".to_owned(), 
+            Email::parse(&TEST_EMAIL),
+            Password::parse(&TEST_PASSWORD),
             true);
         
         let _ = test_subject.add_user(input).await;

@@ -1,27 +1,18 @@
-use regex::Regex;
+use crate::domain::{ Email, Password };
 
+#[derive(Debug)]
 pub struct User {
-    pub email: String,
-    pub password: String,
+    pub email: Result<Email, String>,
+    pub password: Result<Password, String>,
     pub requires_2fa: bool
 }
 
 impl User {
-    pub fn new(email: String, password: String, requires_2fa: bool) -> Self {
+    pub fn new(email: Result<Email, String>, password: Result<Password, String>, requires_2fa: bool) -> Self {
         Self {
             email,
             password,
             requires_2fa
         }
-    }
-
-    pub fn validate_email(&self) -> bool {
-        let re = Regex::new(r"(?i)^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$").unwrap();
-        re.is_match(&self.email)
-    }
-
-    pub fn validate_password(&self) -> bool {
-        let re = Regex::new(r"^.{8,}$").unwrap();
-        re.is_match(&self.password)
     }
 }

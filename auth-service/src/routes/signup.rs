@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::{AuthAPIError, User, UserStore}, AppState};
+use crate::{domain::{AuthAPIError, Email, User, UserStore, Password}, AppState};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignupRequest {
@@ -22,11 +22,12 @@ pub async fn signup(
     State(state): State<Arc<AppState>>,
     Json(request): Json<SignupRequest>
 ) -> Result<impl IntoResponse, AuthAPIError> {
-    let user = User::new(request.email, request.password, request.requires_2fa);
+    let email = Email::parse(&request.email);
+    let password = Password::parse(&request.password);
+    let user = User::new(email, password, request.requires_2fa);
     let mut user_store = state.user_store.write().await;
-
     let result;
-    if user.validate_email() && user.validate_password() {
+    if user.email.is_ok() && user.password.is_ok() {
         if let Ok(_result) = user_store.add_user(user).await {
             let response = Json(SignupResponse {
                 message: "User created successfully".to_string()
