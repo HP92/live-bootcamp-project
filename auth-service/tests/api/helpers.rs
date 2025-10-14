@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use uuid::Uuid;
 
-use auth_service::{services::HashmapUserStore, AppState, Application};
+use auth_service::{domain::UserStore, services::HashmapUserStore, AppState, Application};
 
 pub struct TestApp {
     pub address: String,
