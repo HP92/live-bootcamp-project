@@ -1,13 +1,13 @@
 use regex::Regex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {
-    pub fn parse(address: &str) -> Result<Self, String>{
+    pub fn parse(address: &str) -> Result<Email, String>{
         let re = Regex::new(r"(?i)^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$").unwrap();
         if re.is_match(address) {
-            return Ok(Email(address.to_string()));
+            return Ok(Self(address.to_string()));
         } else {
             return Err("Email doesn't fill the requirements".to_string());
         }

@@ -1,4 +1,4 @@
-use crate::domain::User;
+use crate::domain::{Email, Password, User};
 
 #[derive(Debug, PartialEq)]
 pub enum UserStoreError {
@@ -12,6 +12,6 @@ pub enum UserStoreError {
 pub trait UserStore {
     fn new() -> Self;
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError>;
-    async fn get_user(&self, email: &String) -> Result<&User, UserStoreError>;
-    async fn validate_user(&self, email: &String, password: &String) -> Result<(), UserStoreError>;
+    async fn get_user(&self, email: &Email) -> Result<&User, UserStoreError>;
+    async fn validate_user(&self, email: &Email, password: &Password) -> Result<(), UserStoreError>;
 }

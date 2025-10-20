@@ -1,13 +1,13 @@
 use regex::Regex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Password(String);
 
 impl Password {
-    pub fn parse(password: &str) -> Result<Self, String>{
+    pub fn parse(password: &str) -> Result<Password, String>{
         let re = Regex::new(r"^.{8,}$").unwrap();
         if re.is_match(password) {
-            return Ok(Password(password.to_string()));
+            return Ok(Self(password.to_string()));
         } else {
             return Err("Password doesn't fill the requirements".to_string());
         }

@@ -24,10 +24,10 @@ pub async fn signup(
 ) -> Result<impl IntoResponse, AuthAPIError> {
     let email = Email::parse(&request.email);
     let password = Password::parse(&request.password);
-    let user = User::new(email, password, request.requires_2fa);
     let mut user_store = state.user_store.write().await;
     let result;
-    if user.email.is_ok() && user.password.is_ok() {
+    if email.is_ok() && password.is_ok() {
+        let user = User::new(email.unwrap(), password.unwrap(), request.requires_2fa);
         if let Ok(_result) = user_store.add_user(user).await {
             let response = Json(SignupResponse {
                 message: "User created successfully".to_string()
