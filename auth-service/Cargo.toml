@@ -8,14 +8,19 @@ edition = "2021"
 [dependencies]
 async-trait = { version = "0.1.89" }
 axum = { version = "0.7.4" }
+axum-extra = { version = "0.9.2", features = ["cookie"] }
 tokio = { version = "1.36.1", features = ["full"] }
 tower-http = { version = "0.5.0", features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version ="1.0" }
 uuid = { version = "1.7.0", features = ["v1", "v4", "v5", "fast-rng", "serde"] }
 regex = { version =  "1.12.2" }
-reqwest = { version = "0.12.23", default-features = false, features = ["json"] }
+reqwest = { version = "0.12.23", default-features = false, features = ["json", "cookies"] }
 validator = { version = "0.16.1" }
+jsonwebtoken = { version = "9.2.0" }
+chrono = { version = "0.4.35" }
+dotenvy = { version = "0.15.7" }
+lazy_static = { version =  "1.4.0" }
 
 [dev-dependencies]
 fake = { version = "2.3.0" }

@@ -1,20 +1,41 @@
 use crate::helpers::{get_random_email, TestApp};
 
+use auth_service::{utils::constants::JWT_COOKIE_NAME};
+
 #[tokio::test]
-async fn login_returns_200(){
+async fn login_returns_200_if_valid_credentials_and_2fa_disabled(){
     let app = TestApp::new().await;
+
+    let first_input = 
+    serde_json::json!(
+        {
+            "email": "example@test.com",
+            "password": "asdf1234",
+            "requires2FA": false
+        }
+    );
+    let _ = app.post_signup(&first_input).await;
 
     let test_case = 
         serde_json::json!(
             {
-                "email": "test@example.com",
-                "password": "Asdf1234@",
+                "email": "example@test.com",
+                "password": "asdf1234",
             }
         );
 
     let response = app.post_login(&test_case).await;
 
+    println!("Response: {:?}", response);
+
     assert_eq!(response.status(), 200);
+
+    let auth_cookie = response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found");
+
+    assert!(!auth_cookie.value().is_empty());
 }
 
 #[tokio::test]

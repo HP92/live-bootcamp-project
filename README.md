@@ -31,5 +31,8 @@ visit http://localhost:3000
 docker compose build
 docker compose up
 ```
-
+## Run servers locally (Docker|Script)
+```bash
+./docker.sh
+```
 visit http://localhost:8000 and http://localhost:3000

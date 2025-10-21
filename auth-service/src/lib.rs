@@ -1,27 +1,27 @@
-use std::{
-    error::Error,
-    sync::Arc
-};
+use std::{error::Error, sync::Arc};
 
-use axum::{ 
-    http::StatusCode, 
-    response::{IntoResponse, Response}, 
-    routing::post, 
-    serve::Serve, 
-    Json, 
-    Router
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::post,
+    serve::Serve,
+    Json, Router,
 };
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 
-use crate::domain::AuthAPIError;
 use crate::services::hashmap_user_store::HashmapUserStore;
+use crate::{
+    domain::AuthAPIError,
+    routes::{login, logout, signup, verify_2fa, verify_token},
+};
 
 pub mod domain;
 pub mod routes;
 pub mod services;
+pub mod utils;
 
 pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
 
@@ -35,28 +35,26 @@ impl IntoResponse for AuthAPIError {
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error"),
             AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Incorrect credentials"),
+            AuthAPIError::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error"),
         };
 
         let body = Json(ErrorResponse {
-            error: error_message.to_string()
+            error: error_message.to_string(),
         });
-        
+
         (status, body).into_response()
     }
 }
 
 #[derive(Clone)]
 pub struct AppState {
-    pub user_store: UserStoreType
+    pub user_store: UserStoreType,
 }
 
 impl AppState {
     pub fn new(user_store: UserStoreType) -> Self {
-        Self {
-            user_store
-        }
+        Self { user_store }
     }
 }
 
@@ -69,13 +67,13 @@ pub struct Application {
 impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
-        .nest_service("/", ServeDir::new("assets"))
-        .route("/signup", post(routes::signup))
-        .route("/login", post(routes::login))
-        .route("/logout", post(routes::logout))
-        .route("/verify-2fa", post(routes::verify_2fa))
-        .route("/verify-token", post(routes::verify_token))
-        .with_state(app_state.into());
+            .nest_service("/", ServeDir::new("assets"))
+            .route("/signup", post(signup))
+            .route("/login", post(login))
+            .route("/logout", post(logout))
+            .route("/verify-2fa", post(verify_2fa))
+            .route("/verify-token", post(verify_token))
+            .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -83,7 +81,7 @@ impl Application {
 
         let app = Application {
             server: server,
-            address: address
+            address: address,
         };
 
         Ok(app)
@@ -94,13 +92,3 @@ impl Application {
         self.server.await
     }
 }
-
-
-
-
-
-
-
-
-
-
