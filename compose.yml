@@ -13,6 +13,7 @@ services:
     image: grhp92/auth-service
     restart: "always" # automatically restart container when server crashes
     environment:
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-mysecret}
+      DROPLET_IP: ${DROPLET_IP:-localhost}
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 
