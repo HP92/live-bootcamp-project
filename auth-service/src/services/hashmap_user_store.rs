@@ -143,8 +143,6 @@ mod tests {
             &expected_input.password
         ).await;
 
-        println!("#{:?}",result);
-
         assert!(result.is_ok());
     }
 

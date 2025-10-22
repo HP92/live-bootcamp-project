@@ -10,11 +10,6 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct LoginResponse {
-    pub message: String,
-}
-
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,

@@ -16,8 +16,6 @@ async fn signup_returns_201_if_valid_input(){
     let app = TestApp::new().await;
     let response = app.post_signup(&test_case).await;    
 
-    println!("The response in the test #{:?}", response);
-
     assert_eq!(response.status().as_u16(), 201);
 
     let expected_response = SignupResponse {

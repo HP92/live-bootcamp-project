@@ -26,8 +26,6 @@ async fn login_returns_200_if_valid_credentials_and_2fa_disabled(){
 
     let response = app.post_login(&test_case).await;
 
-    println!("Response: {:?}", response);
-
     assert_eq!(response.status(), 200);
 
     let auth_cookie = response
