@@ -9,10 +9,6 @@ pub struct HashmapUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
-    fn new() -> Self {
-        HashmapUserStore { users: HashMap::new() }
-    }
-
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let result; 
         if self.get_user(&user.email).await.is_ok() {
@@ -60,7 +56,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_user(){
-        let mut test_subject = HashmapUserStore::new();
+        let mut test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(),
             Password::parse(&TEST_PASSWORD).unwrap(), 
@@ -73,7 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_adding_same_user_and_expect_error() {
-        let mut test_subject = HashmapUserStore::new();
+        let mut test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(), 
             Password::parse(&TEST_PASSWORD).unwrap(), 
@@ -92,7 +88,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user(){
-        let mut test_subject = HashmapUserStore::new();
+        let mut test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(),
             Password::parse(&TEST_PASSWORD).unwrap(),
@@ -112,7 +108,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user_that_does_not_exist(){
-        let test_subject = HashmapUserStore::new();
+        let test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(),
             Password::parse(&TEST_PASSWORD).unwrap(),
@@ -125,7 +121,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user(){
-        let mut test_subject = HashmapUserStore::new();
+        let mut test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(),
             Password::parse(&TEST_PASSWORD).unwrap(),
@@ -148,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user_with_invalid_password(){
-        let mut test_subject = HashmapUserStore::new();
+        let mut test_subject = HashmapUserStore::default();
         let input = User::new(
             Email::parse(&TEST_EMAIL).unwrap(),
             Password::parse(&TEST_PASSWORD).unwrap(),
@@ -172,7 +168,7 @@ mod tests {
 
      #[tokio::test]
     async fn test_validate_user_that_does_not_exist(){
-        let test_subject = HashmapUserStore::new();
+        let test_subject = HashmapUserStore::default();
 
         let input = User::new(
             Email::parse(&"test@example.com".to_owned()).unwrap(),

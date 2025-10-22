@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc};
+use std::error::Error;
 
 use axum::{
     http::{HeaderValue, StatusCode},
@@ -10,21 +10,21 @@ use axum::{
 
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
-use crate::{services::hashmap_user_store::HashmapUserStore, utils::constants::DROPLET_IP};
+use crate::utils::constants::DROPLET_IP;
 use crate::{
     domain::AuthAPIError,
     routes::{login, logout, signup, verify_2fa, verify_token},
 };
+use app_state::AppState;
 
+pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
 pub mod utils;
-
-pub type UserStoreType = Arc<RwLock<HashmapUserStore>>;
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorResponse {
@@ -36,10 +36,14 @@ impl IntoResponse for AuthAPIError {
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
-            AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Incorrect credentials"),
+            AuthAPIError::IncorrectCredentials => {
+                (StatusCode::UNAUTHORIZED, "Incorrect credentials")
+            }
             AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing token"),
             AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token"),
-            AuthAPIError::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error"),
+            AuthAPIError::UnexpectedError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            }
         };
 
         let body = Json(ErrorResponse {
@@ -47,17 +51,6 @@ impl IntoResponse for AuthAPIError {
         });
 
         (status, body).into_response()
-    }
-}
-
-#[derive(Clone)]
-pub struct AppState {
-    pub user_store: UserStoreType,
-}
-
-impl AppState {
-    pub fn new(user_store: UserStoreType) -> Self {
-        Self { user_store }
     }
 }
 

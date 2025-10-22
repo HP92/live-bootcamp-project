@@ -44,6 +44,14 @@ async fn logout_returns_200_logout_succesful(){
 
     let response = app.post_logout().await;
     assert_eq!(response.status(), 200);
+
+    let banned_token_store = app.banned_token_store.read().await;
+    let is_token_banned = banned_token_store
+        .is_token_banned(auth_cookie.value())
+        .await
+        .expect("Failed to check if token is banned");
+
+    assert!(is_token_banned);
 }
 
 #[tokio::test]

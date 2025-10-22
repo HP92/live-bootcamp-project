@@ -1,22 +1,29 @@
-use std::sync::Arc;
 use reqwest::cookie::Jar;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use auth_service::{domain::UserStore, services::HashmapUserStore, utils::test, AppState, Application};
+use auth_service::app_state::{AppState, BannedTokenStoreType};
+use auth_service::{
+    services::{HashmapUserStore, HashsetBannedTokenStore},
+    utils::test,
+    Application,
+};
 
 pub struct TestApp {
     pub address: String,
     pub http_client: reqwest::Client,
     pub cookie_jar: Arc<Jar>,
+    pub banned_token_store: BannedTokenStoreType,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::new()));
-        let app_state = AppState::new(user_store);
+        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let app_state = AppState::new(user_store, banned_token_store.clone());
 
-        let app = Application::build(app_state,test::APP_ADDRESS)
+        let app = Application::build(app_state, test::APP_ADDRESS)
             .await
             .expect("Failed to build app");
 
@@ -31,13 +38,12 @@ impl TestApp {
             .build()
             .expect("Failed to build HTTP client.");
 
-        let app = TestApp {
+        Self {
             address: address,
             http_client: http_client,
             cookie_jar: cookie_jar,
-        };
-
-        app 
+            banned_token_store: banned_token_store,
+        }
     }
 
     pub async fn get_root(&self) -> reqwest::Response {
@@ -48,9 +54,9 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response 
-    where 
-        Body: serde::Serialize 
+    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
     {
         self.http_client
             .post(&format!("{}/signup", &self.address))
@@ -61,10 +67,10 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
-    
-    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response 
-    where 
-        Body: serde::Serialize 
+
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
     {
         self.http_client
             .post(&format!("{}/login", &self.address))
@@ -98,7 +104,7 @@ impl TestApp {
 
     pub async fn post_verify_token<Body>(&self, body: &Body) -> reqwest::Response
     where
-        Body: serde::Serialize 
+        Body: serde::Serialize,
     {
         self.http_client
             .post(&format!("{}/verify-token", &self.address))

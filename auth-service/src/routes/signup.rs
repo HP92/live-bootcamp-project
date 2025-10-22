@@ -1,7 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::{AuthAPIError, Email, User, UserStore, Password}, AppState};
+use crate::{domain::{AuthAPIError, Email, User, Password}, AppState};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignupRequest {

@@ -2,7 +2,7 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::{AuthAPIError, Email, Password, UserStore}, AppState, utils::auth::generate_auth_cookie};
+use crate::{domain::{AuthAPIError, Email, Password }, AppState, utils::auth::generate_auth_cookie};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct LoginRequest {
