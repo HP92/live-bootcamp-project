@@ -4,12 +4,12 @@ use regex::Regex;
 pub struct Email(String);
 
 impl Email {
-    pub fn parse(address: &str) -> Result<Email, String>{
+    pub fn parse(address: &str) -> Result<Email, String> {
         let re = Regex::new(r"(?i)^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$").unwrap();
         if re.is_match(address) {
-            return Ok(Self(address.to_string()));
+            Ok(Self(address.to_string()))
         } else {
-            return Err("Email doesn't fill the requirements".to_string());
+            Err("Email doesn't fill the requirements".to_string())
         }
     }
 
@@ -26,7 +26,7 @@ impl AsRef<str> for Email {
 
 mod tests {
     #[tokio::test]
-    async fn test_parse_email_ok(){
+    async fn test_parse_email_ok() {
         let expected_value = "test@example.com".to_string();
         let test_email = crate::domain::Email::parse("test@example.com");
 
@@ -35,7 +35,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_email_err(){
+    async fn test_parse_email_err() {
         let expected_value = "Email doesn't fill the requirements".to_string();
         let test_email = crate::domain::Email::parse("example.com");
 

@@ -8,9 +8,9 @@ pub struct HashsetBannedTokenStore {
 }
 
 #[async_trait::async_trait]
-impl BannedTokenStore for HashsetBannedTokenStore{
+impl BannedTokenStore for HashsetBannedTokenStore {
     async fn add_token(&mut self, token: &str) -> Result<(), String> {
-        if  !&self.tokens.insert(token.to_string()) {
+        if !&self.tokens.insert(token.to_string()) {
             return Err("Failed to insert token".to_string());
         }
 
@@ -27,8 +27,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_and_check_token() {
-        use crate::services::hashset_banned_token_store::HashsetBannedTokenStore;
         use crate::domain::BannedTokenStore;
+        use crate::services::hashset_banned_token_store::HashsetBannedTokenStore;
 
         let mut store = HashsetBannedTokenStore::default();
 

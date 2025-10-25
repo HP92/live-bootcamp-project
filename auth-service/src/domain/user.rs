@@ -1,10 +1,10 @@
-use crate::domain::{ Email, Password };
+use crate::domain::{Email, Password};
 
 #[derive(Debug)]
 pub struct User {
     pub email: Email,
     pub password: Password,
-    pub requires_2fa: bool
+    pub requires_2fa: bool,
 }
 
 impl User {
@@ -12,7 +12,7 @@ impl User {
         Self {
             email,
             password,
-            requires_2fa
+            requires_2fa,
         }
     }
 }

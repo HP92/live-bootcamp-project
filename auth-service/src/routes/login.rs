@@ -2,7 +2,11 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::{AuthAPIError, Email, Password }, AppState, utils::auth::generate_auth_cookie};
+use crate::{
+    domain::{AuthAPIError, Email, Password},
+    utils::auth::generate_auth_cookie,
+    AppState,
+};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct LoginRequest {
@@ -19,20 +23,24 @@ pub async fn login(
     let password = Password::parse(&request.password);
     let user_store = state.user_store.write().await;
 
-    if email.is_err() || password.is_err() { 
+    if email.is_err() || password.is_err() {
         return (jar, Err(AuthAPIError::InvalidCredentials));
     }
 
-    if let Err(_) = user_store.validate_user(&email.as_ref().unwrap(), &password.as_ref().unwrap()).await {
+    if (user_store
+        .validate_user(email.as_ref().unwrap(), password.as_ref().unwrap())
+        .await)
+        .is_err()
+    {
         return (jar, Err(AuthAPIError::IncorrectCredentials));
     }
 
-    let user = user_store.get_user(&email.as_ref().unwrap()).await.unwrap();
+    let user = user_store.get_user(email.as_ref().unwrap()).await.unwrap();
     let auth_cookie = generate_auth_cookie(&user.email).unwrap();
 
     if auth_cookie.value().is_empty() {
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
-    
+
     (jar.add(auth_cookie), Ok(StatusCode::OK.into_response()))
 }

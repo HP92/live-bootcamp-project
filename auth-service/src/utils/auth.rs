@@ -14,7 +14,7 @@ const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
 #[derive(Debug)]
 pub enum GenerateTokenError {
     TokenError(jsonwebtoken::errors::Error),
-    UnexpectedError
+    UnexpectedError,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,7 +52,6 @@ fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
     create_token(&claims).map_err(GenerateTokenError::TokenError)
 }
 
-
 // Create cookie and set the value to the passed-in token string
 pub fn create_auth_cookie(token: String) -> Cookie<'static> {
     let cookie = Cookie::build((JWT_COOKIE_NAME, token))
@@ -65,8 +64,11 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
 }
 
 // Check if JWT auth token is valid by decoding it using the JWT secret
-pub async fn validate_token(banned_token_store: BannedTokenStoreType, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-     match banned_token_store.read().await.is_token_banned(token).await {
+pub async fn validate_token(
+    banned_token_store: BannedTokenStoreType,
+    token: &str,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
+    match banned_token_store.read().await.is_token_banned(token).await {
         Ok(value) => {
             if value {
                 return Err(jsonwebtoken::errors::Error::from(
@@ -154,8 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_token_with_invalid_token() {
-        let banned_token_store 
-            = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let token = "invalid_token".to_owned();
         let result = validate_token(banned_token_store, &token).await;
         assert!(result.is_err());

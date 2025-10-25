@@ -1,20 +1,18 @@
 use auth_service::routes::SignupResponse;
 
-use crate::helpers::{TestApp, get_random_email};
-
+use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
-async fn signup_returns_201_if_valid_input(){
-    let test_case = 
-        serde_json::json!(
-            {
-                "email": "test@example.com",
-                "password": "Asdf1234@",
-                "requires2FA": true
-            }
-        );
+async fn signup_returns_201_if_valid_input() {
+    let test_case = serde_json::json!(
+        {
+            "email": "test@example.com",
+            "password": "Asdf1234@",
+            "requires2FA": true
+        }
+    );
     let app = TestApp::new().await;
-    let response = app.post_signup(&test_case).await;    
+    let response = app.post_signup(&test_case).await;
 
     assert_eq!(response.status().as_u16(), 201);
 
@@ -22,7 +20,6 @@ async fn signup_returns_201_if_valid_input(){
         message: "User created successfully".to_owned(),
     };
 
-   
     assert_eq!(
         response
             .json::<SignupResponse>()
@@ -51,7 +48,7 @@ async fn singup_returns_400_if_invalid_input() {
         ),
     ];
     let app = TestApp::new().await;
-    
+
     for test_case in test_cases.iter() {
         let response = app.post_signup(test_case).await;
         assert_eq!(
@@ -64,16 +61,15 @@ async fn singup_returns_400_if_invalid_input() {
 }
 
 #[tokio::test]
-async fn signup_returns_409_user_already_exist() { 
+async fn signup_returns_409_user_already_exist() {
     let app = TestApp::new().await;
-    let first_input = 
-        serde_json::json!(
-            {
-                "email": "example@test.com",
-                "password": "asdf1234",
-                "requires2FA": true
-            }
-        );
+    let first_input = serde_json::json!(
+        {
+            "email": "example@test.com",
+            "password": "asdf1234",
+            "requires2FA": true
+        }
+    );
     let response = app.post_signup(&first_input).await;
     assert_eq!(
         response.status().as_u16(),
@@ -82,14 +78,13 @@ async fn signup_returns_409_user_already_exist() {
         first_input
     );
 
-    let second_input = 
-        serde_json::json!(
-            {
-                "email": "example@test.com",
-                "password": "asdf1234",
-                "requires2FA": true
-            }
-        );
+    let second_input = serde_json::json!(
+        {
+            "email": "example@test.com",
+            "password": "asdf1234",
+            "requires2FA": true
+        }
+    );
 
     let response = app.post_signup(&second_input).await;
     assert_eq!(
@@ -101,7 +96,7 @@ async fn signup_returns_409_user_already_exist() {
 }
 
 #[tokio::test]
-async fn signup_returns_422_if_malformed_input(){
+async fn signup_returns_422_if_malformed_input() {
     let app = TestApp::new().await;
     let random_email = get_random_email();
     let test_cases = [
@@ -122,7 +117,7 @@ async fn signup_returns_422_if_malformed_input(){
                 "email": random_email,
                 "requires2FA": true
             }
-        )
+        ),
     ];
 
     for test_case in test_cases.iter() {

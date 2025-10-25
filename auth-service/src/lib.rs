@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
-use crate::utils::constants::DROPLET_IP;
 use crate::{
     domain::AuthAPIError,
     routes::{login, logout, signup, verify_2fa, verify_token},
+    utils::DROPLET_IP,
 };
 use app_state::AppState;
 
@@ -87,10 +87,7 @@ impl Application {
         let address = listener.local_addr()?.to_string();
         let server = axum::serve(listener, router);
 
-        let app = Application {
-            server: server,
-            address: address,
-        };
+        let app = Application { server, address };
 
         Ok(app)
     }
