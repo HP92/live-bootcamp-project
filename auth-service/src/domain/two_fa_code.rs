@@ -5,7 +5,7 @@ pub struct TwoFACode(String);
 
 impl TwoFACode {
     pub fn parse(code: String) -> Result<Self, String> {
-        if code.len() == 6 && code.chars().all(|c| c.is_digit(10)) {
+        if code.len() == 6 && code.chars().all(|c| c.is_ascii_digit()) {
             Ok(Self(code))
         } else {
             Err("2FA Code must be a 6-digit number".to_string())
@@ -20,9 +20,7 @@ impl Default for TwoFACode {
         let mut rng = thread_rng();
 
         // Generate a 6-character numeric string
-        let code: String = (0..6)
-            .map(|_| rng.gen_range(0..10).to_string())
-            .collect();
+        let code: String = (0..6).map(|_| rng.gen_range(0..10).to_string()).collect();
 
         Self(code)
     }
@@ -42,7 +40,7 @@ mod tests {
         let test_code = crate::domain::TwoFACode::parse("123456".to_string());
         assert!(test_code.is_ok());
         assert_eq!(expected_value, test_code.unwrap().0)
-    }   
+    }
 
     #[tokio::test]
     async fn test_parse_2fa_code_err() {

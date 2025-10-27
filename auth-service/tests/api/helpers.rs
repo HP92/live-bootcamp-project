@@ -1,3 +1,4 @@
+use auth_service::services::MockEmailClient;
 use reqwest::cookie::Jar;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -15,18 +16,21 @@ pub struct TestApp {
     pub http_client: reqwest::Client,
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
-    pub two_fa_store: TwoFACodeStoreType,
+    pub two_fa_code_store: TwoFACodeStoreType,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
-        let two_fa_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
+
         let app_state = AppState::new(
-            user_store, 
+            user_store,
             banned_token_store.clone(),
-            two_fa_store.clone()
+            two_fa_code_store.clone(),
+            email_client_type.clone(),
         );
 
         let app = Application::build(app_state, test::APP_ADDRESS)
@@ -49,7 +53,7 @@ impl TestApp {
             http_client: http_client,
             cookie_jar: cookie_jar,
             banned_token_store: banned_token_store,
-            two_fa_store: two_fa_store,
+            two_fa_code_store: two_fa_code_store,
         }
     }
 

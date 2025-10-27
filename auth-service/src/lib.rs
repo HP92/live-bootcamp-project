@@ -64,7 +64,7 @@ impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = vec![
             "http://localhost:8000".parse::<HeaderValue>()?,
-            format!("http:{}//:8000", DROPLET_IP.to_string()).parse::<HeaderValue>()?,
+            format!("http:{}//:8000", *DROPLET_IP).parse::<HeaderValue>()?,
         ];
 
         let cors = CorsLayer::new()

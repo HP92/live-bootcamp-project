@@ -58,23 +58,26 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
     let response = app.post_login(&test_case).await;
     assert_eq!(response.status(), 206);
 
-    let response_body = response.json::<LoginResponse2FA>()
-            .await
-            .expect("Could not deserialize response body to LoginResponse2FA");
+    let response_body = response
+        .json::<LoginResponse2FA>()
+        .await
+        .expect("Could not deserialize response body to LoginResponse2FA");
 
-    assert_eq!(
-        response_body.message,
-        "2FA required".to_owned()
-    );
-
+    assert_eq!(response_body.message, "2FA required".to_owned());
 
     let login_attempt_id_len = response_body.login_attempt_id.clone();
-    let two_fa_store = app.two_fa_store.read().await;
+    let two_fa_store = app.two_fa_code_store.read().await;
     let example_email = Email::parse("test@example.com");
 
     assert_eq!(
         login_attempt_id_len,
-        two_fa_store.get_code(&example_email.unwrap()).await.unwrap().0.as_ref().to_string()
+        two_fa_store
+            .get_code(&example_email.unwrap())
+            .await
+            .unwrap()
+            .0
+            .as_ref()
+            .to_string()
     );
 }
 
