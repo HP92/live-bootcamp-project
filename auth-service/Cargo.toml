@@ -14,6 +14,7 @@ tower-http = { version = "0.5.0", features = ["fs",  "cors"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version ="1.0" }
 uuid = { version = "1.7.0", features = ["v1", "v4", "v5", "fast-rng", "serde"] }
+rand = { version = "0.8.5" }
 regex = { version =  "1.12.2" }
 reqwest = { version = "0.12.23", default-features = false, features = ["json", "cookies"] }
 validator = { version = "0.16.1" }

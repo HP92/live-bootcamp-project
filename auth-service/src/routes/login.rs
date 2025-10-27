@@ -3,15 +3,27 @@ use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{AuthAPIError, Email, Password},
-    utils::auth::generate_auth_cookie,
-    AppState,
+    domain::{AuthAPIError, Email, LoginAttemptId, Password, TwoFACode}, utils::auth::generate_auth_cookie, AppState
 };
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct LoginResponse2FA {
+    pub message: String,
+    #[serde(rename = "loginAttemptId")]
+    pub login_attempt_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum LoginResponse {
+    RegularAuth,
+    TwoFactorAuth(LoginResponse2FA),
 }
 
 pub async fn login(
@@ -36,11 +48,53 @@ pub async fn login(
     }
 
     let user = user_store.get_user(email.as_ref().unwrap()).await.unwrap();
-    let auth_cookie = generate_auth_cookie(&user.email).unwrap();
+    match user.requires_2fa {
+        true => handle_2fa(jar, &state, &user.email).await,
+        false => handle_no_2fa(jar, &user.email).await,
+    }
+}
 
+async fn handle_2fa(
+    jar: CookieJar,
+    state: &AppState,
+    email: &Email
+) -> (
+    CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>
+) {
+    let login_attempt_id = LoginAttemptId::default();
+    let two_fa_code = TwoFACode::default();
+    let mut two_fa_store = state.two_fa_code_store.write().await;
+
+    if two_fa_store
+        .add_code(
+            email.clone(),
+            login_attempt_id.clone(),
+            two_fa_code.clone()
+        )
+        .await
+        .is_err() {
+        return (jar, Err(AuthAPIError::UnexpectedError))
+    };
+
+    let response = LoginResponse2FA {
+        message: "2FA required".to_string(),
+        login_attempt_id: login_attempt_id.as_ref().to_string(),
+    };
+
+    (jar, Ok((StatusCode::PARTIAL_CONTENT, Json(LoginResponse::TwoFactorAuth(response)))))
+}
+
+async fn handle_no_2fa(
+    jar: CookieJar,
+    email: &Email, 
+) -> ( CookieJar,
+    Result<(StatusCode, Json<LoginResponse>), AuthAPIError>
+) {
+    let auth_cookie = generate_auth_cookie(email).unwrap();
     if auth_cookie.value().is_empty() {
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
 
-    (jar.add(auth_cookie), Ok(StatusCode::OK.into_response()))
+    (jar.add(auth_cookie), Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))))
 }

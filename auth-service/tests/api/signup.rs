@@ -8,7 +8,7 @@ async fn signup_returns_201_if_valid_input() {
         {
             "email": "test@example.com",
             "password": "Asdf1234@",
-            "requires2FA": true
+            "requires2FA": false
         }
     );
     let app = TestApp::new().await;
@@ -36,14 +36,14 @@ async fn singup_returns_400_if_invalid_input() {
             {
                 "email": "test.com",
                 "password": "password123",
-                "requires2FA": true
+                "requires2FA": false
             }
         ),
         serde_json::json!(
             {
                 "email": "example@test.com",
                 "password": "1234567",
-                "requires2FA": true
+                "requires2FA": false
             }
         ),
     ];
@@ -67,7 +67,7 @@ async fn signup_returns_409_user_already_exist() {
         {
             "email": "example@test.com",
             "password": "asdf1234",
-            "requires2FA": true
+            "requires2FA": false
         }
     );
     let response = app.post_signup(&first_input).await;
@@ -82,7 +82,7 @@ async fn signup_returns_409_user_already_exist() {
         {
             "email": "example@test.com",
             "password": "asdf1234",
-            "requires2FA": true
+            "requires2FA": false
         }
     );
 
@@ -103,7 +103,7 @@ async fn signup_returns_422_if_malformed_input() {
         serde_json::json!(
             {
                 "password": "password123",
-                "requires2FA": true
+                "requires2FA": false
             }
         ),
         serde_json::json!(
@@ -115,7 +115,7 @@ async fn signup_returns_422_if_malformed_input() {
         serde_json::json!(
             {
                 "email": random_email,
-                "requires2FA": true
+                "requires2FA": false
             }
         ),
     ];
