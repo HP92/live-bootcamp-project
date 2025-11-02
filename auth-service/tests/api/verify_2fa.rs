@@ -125,7 +125,7 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
         .expect("Could not deserialize response body to LoginResponse2FA");
     let example_email = Email::parse(&random_email.clone());
 
-    let (login_attempt_id,two_fa_code ) =
+    let (login_attempt_id, two_fa_code) =
         get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
 
     let test_cases = [
@@ -189,9 +189,8 @@ async fn verify_2fa_returns_401_if_old_code() {
     assert_eq!(response.status(), 206);
 
     let example_email = Email::parse(&random_email.clone());
-    let (first_login_attempt_id, first_two_fa_code ) =
+    let (first_login_attempt_id, first_two_fa_code) =
         get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
-
 
     // Second login to overwrite 2FA code
     let second_login = serde_json::json!(
@@ -202,7 +201,7 @@ async fn verify_2fa_returns_401_if_old_code() {
     );
     let response = app.post_login(&second_login).await;
     assert_eq!(response.status(), 206);
-    
+
     let test_case = serde_json::json!(
         {
             "email": random_email,
