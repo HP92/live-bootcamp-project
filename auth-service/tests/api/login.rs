@@ -32,6 +32,7 @@ async fn login_returns_200_if_valid_credentials_and_2fa_disabled() {
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -79,6 +80,7 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
             .as_ref()
             .to_string()
     );
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -108,6 +110,7 @@ async fn login_returns_400_if_invalid_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -138,6 +141,7 @@ async fn login_returns_401_if_invalid_credentials() {
         "Failed for input: {:?}",
         second_input
     );
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -167,4 +171,5 @@ async fn login_returns_422_if_malformed_credentials() {
             test_case
         );
     }
+    app.clean_up().await;
 }

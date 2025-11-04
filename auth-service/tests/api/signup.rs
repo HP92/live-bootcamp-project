@@ -27,6 +27,7 @@ async fn signup_returns_201_if_valid_input() {
             .expect("Could not deserialize response body to UserBody"),
         expected_response
     );
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -58,6 +59,7 @@ async fn singup_returns_400_if_invalid_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -93,6 +95,7 @@ async fn signup_returns_409_user_already_exist() {
         "Failed for input: {:?}",
         second_input
     );
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -129,4 +132,5 @@ async fn signup_returns_422_if_malformed_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }

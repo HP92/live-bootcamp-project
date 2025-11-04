@@ -38,6 +38,7 @@ async fn verify_token_returns_200() {
     let response = app.post_verify_token(&test_case).await;
 
     assert_eq!(response.status(), 200);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -96,6 +97,7 @@ async fn verify_token_returns_401_for_invalid_token() {
             .error,
         "Invalid token".to_owned()
     );
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -124,4 +126,5 @@ async fn verify_token_returns_422_for_malformed_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }

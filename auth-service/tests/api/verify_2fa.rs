@@ -48,6 +48,7 @@ async fn verify_2fa_returns_200_if_correct_code() {
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -94,6 +95,7 @@ async fn verify_2fa_returns_400_if_invalid_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -161,6 +163,7 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
             test_case
         );
     }
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -211,6 +214,7 @@ async fn verify_2fa_returns_401_if_old_code() {
     );
     let response = app.post_verify_2fa(&test_case).await;
     assert_eq!(response.status(), 401);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -263,6 +267,7 @@ async fn should_return_401_if_same_code_twice() {
     );
     let response = app.post_verify_2fa(&test_case).await;
     assert_eq!(response.status(), 401);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -299,6 +304,7 @@ async fn verify_2fa_returns_422_if_malformed_input() {
             test_case
         );
     }
+    app.clean_up().await;
 }
 
 // To avoid locking the resource I am recreating this function to have a smaller scope
