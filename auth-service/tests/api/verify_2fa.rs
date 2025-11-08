@@ -313,6 +313,6 @@ async fn get_two_fa_code_and_login_attemp(
     app: &TestApp,
     email: &Email,
 ) -> (LoginAttemptId, TwoFACode) {
-    let two_fa_code_store = app.two_fa_code_store.read().await;
+    let mut two_fa_code_store = app.two_fa_code_store.write().await;
     two_fa_code_store.get_code(email).await.unwrap()
 }

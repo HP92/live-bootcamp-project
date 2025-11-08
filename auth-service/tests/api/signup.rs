@@ -4,9 +4,10 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn signup_returns_201_if_valid_input() {
+    let random_email = get_random_email();
     let test_case = serde_json::json!(
         {
-            "email": "test@example.com",
+            "email": random_email.clone(),
             "password": "Asdf1234@",
             "requires2FA": false
         }
@@ -31,7 +32,8 @@ async fn signup_returns_201_if_valid_input() {
 }
 
 #[tokio::test]
-async fn singup_returns_400_if_invalid_input() {
+async fn signup_returns_400_if_invalid_input() {
+    let random_email = get_random_email();
     let test_cases = [
         serde_json::json!(
             {
@@ -42,7 +44,7 @@ async fn singup_returns_400_if_invalid_input() {
         ),
         serde_json::json!(
             {
-                "email": "example@test.com",
+                "email": random_email.clone(),
                 "password": "1234567",
                 "requires2FA": false
             }
@@ -65,9 +67,10 @@ async fn singup_returns_400_if_invalid_input() {
 #[tokio::test]
 async fn signup_returns_409_user_already_exist() {
     let app = TestApp::new().await;
+    let random_email = get_random_email();
     let first_input = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf1234",
             "requires2FA": false
         }
@@ -82,7 +85,7 @@ async fn signup_returns_409_user_already_exist() {
 
     let second_input = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf1234",
             "requires2FA": false
         }

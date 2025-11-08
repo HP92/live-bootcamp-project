@@ -28,7 +28,7 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
     }
 
     async fn get_code(
-        &self,
+        &mut self,
         email: &Email,
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
         if let Some((login_attempt_id, code)) = self.codes.get(email) {

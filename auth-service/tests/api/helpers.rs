@@ -1,6 +1,8 @@
-use auth_service::get_postgres_pool;
-use auth_service::services::{MockEmailClient, PostgresUserStore};
-use auth_service::utils::DATABASE_URL;
+use auth_service::services::{
+    MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore,
+};
+use auth_service::utils::{DATABASE_URL, REDIS_HOST_NAME};
+use auth_service::{get_postgres_pool, get_redis_client};
 use reqwest::cookie::Jar;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -10,11 +12,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use auth_service::app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType};
-use auth_service::{
-    services::{HashmapTwoFACodeStore, HashsetBannedTokenStore},
-    utils::test,
-    Application,
-};
+use auth_service::{utils::test, Application};
 
 pub struct TestApp {
     pub database_name: String,
@@ -34,8 +32,16 @@ impl TestApp {
         // In DB storage
         let pg_pool = configure_postgresql(database_name.clone().to_string()).await;
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
-        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
-        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        // In memory storage
+        // let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        // In REDIS storage
+        let redis_con = configure_redis();
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_con)));
+        // In memory storage
+        // let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        // In REDIS storage
+        let conn = configure_redis();
+        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(conn)));
         let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
 
         let app_state = AppState::new(
@@ -194,6 +200,13 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
         .run(&connection)
         .await
         .expect("Failed to migrate the database");
+}
+
+fn configure_redis() -> redis::Connection {
+    get_redis_client(REDIS_HOST_NAME.to_owned())
+        .expect("Failed to get Redis client")
+        .get_connection()
+        .expect("Failed to get Redis connection")
 }
 
 async fn delete_database(db_name: &str) {

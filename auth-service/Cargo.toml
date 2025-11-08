@@ -17,6 +17,7 @@ serde_json = { version ="1.0" }
 sqlx = { version = "0.8", features = [ "runtime-tokio-rustls", "postgres", "migrate"] }
 uuid = { version = "1.7.0", features = ["v1", "v4", "v5", "fast-rng", "serde"] }
 rand = { version = "0.8.5" }
+redis = { version = "0.25.2", features = ["tokio-comp"] }
 regex = { version =  "1.12.2" }
 reqwest = { version = "0.12.23", default-features = false, features = ["json", "cookies"] }
 validator = { version = "0.16.1" }

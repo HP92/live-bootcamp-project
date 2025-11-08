@@ -9,7 +9,7 @@ use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
 
 // For testing purposes
 // const JWT_SECRET: &str = "your_secret";
-const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
+pub const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
 
 #[derive(Debug)]
 pub enum GenerateTokenError {
@@ -68,7 +68,7 @@ pub async fn validate_token(
     banned_token_store: BannedTokenStoreType,
     token: &str,
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
-    match banned_token_store.read().await.is_token_banned(token).await {
+    match banned_token_store.write().await.contains_token(token).await {
         Ok(value) => {
             if value {
                 return Err(jsonwebtoken::errors::Error::from(

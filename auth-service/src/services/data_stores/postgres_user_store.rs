@@ -29,8 +29,6 @@ impl UserStore for PostgresUserStore {
                 .await
                 .map_err(|_| UserStoreError::UnexpectedError)?;
 
-            println!("Password hashed {:?}", hashed_password);
-
             sqlx::query!(
                 "INSERT INTO users(email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
                 user.email.as_ref(),

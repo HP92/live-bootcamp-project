@@ -6,9 +6,10 @@ use auth_service::{domain::Email, routes::LoginResponse2FA, utils::constants::JW
 async fn login_returns_200_if_valid_credentials_and_2fa_disabled() {
     let app = TestApp::new().await;
 
+    let random_email = get_random_email();
     let first_input = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf1234",
             "requires2FA": false
         }
@@ -17,7 +18,7 @@ async fn login_returns_200_if_valid_credentials_and_2fa_disabled() {
 
     let test_case = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf1234",
         }
     );
@@ -37,9 +38,10 @@ async fn login_returns_200_if_valid_credentials_and_2fa_disabled() {
 
 #[tokio::test]
 async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
+    let random_email = get_random_email();
     let test_case = serde_json::json!(
         {
-            "email": "test@example.com",
+            "email": random_email.clone(),
             "password": "Asdf1234@",
             "requires2FA": true
         }
@@ -51,7 +53,7 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
 
     let test_case = serde_json::json!(
         {
-            "email": "test@example.com",
+            "email": random_email.clone(),
             "password": "Asdf1234@",
         }
     );
@@ -67,8 +69,8 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
     assert_eq!(response_body.message, "2FA required".to_owned());
 
     let login_attempt_id_len = response_body.login_attempt_id.clone();
-    let two_fa_store = app.two_fa_code_store.read().await;
-    let example_email = Email::parse("test@example.com");
+    let mut two_fa_store = app.two_fa_code_store.write().await;
+    let example_email = Email::parse(&random_email);
 
     assert_eq!(
         login_attempt_id_len,
@@ -94,7 +96,7 @@ async fn login_returns_400_if_invalid_input() {
         ),
         serde_json::json!(
             {
-                "email": "example@test.com",
+                "email": get_random_email(),
                 "password": "1234567",
             }
         ),
@@ -116,10 +118,11 @@ async fn login_returns_400_if_invalid_input() {
 #[tokio::test]
 async fn login_returns_401_if_invalid_credentials() {
     let app = TestApp::new().await;
+    let random_email = get_random_email();
     // Create a user first
     let first_input = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf1234",
             "requires2FA": true
         }
@@ -129,7 +132,7 @@ async fn login_returns_401_if_invalid_credentials() {
     // Now try to login with wrong password
     let second_input = serde_json::json!(
         {
-            "email": "example@test.com",
+            "email": random_email.clone(),
             "password": "asdf12345",
         }
     );
@@ -148,7 +151,7 @@ async fn login_returns_401_if_invalid_credentials() {
 async fn login_returns_422_if_malformed_credentials() {
     let app = TestApp::new().await;
 
-    let random_email = get_random_email();
+    let random_email: String = get_random_email();
     let test_cases = [
         serde_json::json!(
             {

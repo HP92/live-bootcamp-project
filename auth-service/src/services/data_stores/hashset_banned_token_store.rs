@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::domain::BannedTokenStore;
+use crate::domain::{BannedTokenStore, BannedTokenStoreError};
 
 #[derive(Debug, Default)]
 pub struct HashsetBannedTokenStore {
@@ -9,16 +9,20 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&mut self, token: &str) -> Result<(), String> {
+    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
         if !&self.tokens.insert(token.to_string()) {
-            return Err("Failed to insert token".to_string());
+            return Err(BannedTokenStoreError::UnexpectedError);
         }
 
         Ok(())
     }
 
-    async fn is_token_banned(&self, token: &str) -> Result<bool, String> {
-        Ok(self.tokens.contains(token))
+    async fn contains_token(&mut self, token: &str) -> Result<bool, BannedTokenStoreError> {
+        if self.tokens.contains(token) {
+            Ok(self.tokens.contains(token))
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -35,14 +39,14 @@ mod tests {
         let token = "sample_token";
 
         // Initially, the token should not be banned
-        let is_banned = store.is_token_banned(token).await.unwrap();
+        let is_banned = store.contains_token(token).await.unwrap();
         assert!(!is_banned, "Token should not be banned initially");
 
         // Add the token to the banned list
-        store.add_token(token).await.unwrap();
+        store.add_token(token.to_string()).await.unwrap();
 
         // Now, the token should be banned
-        let is_banned = store.is_token_banned(token).await.unwrap();
+        let is_banned = store.contains_token(token).await.unwrap();
         assert!(is_banned, "Token should be banned after adding");
     }
 }
