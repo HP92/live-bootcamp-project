@@ -6,12 +6,14 @@ use auth_service::{
     app_state::AppState,
     get_postgres_pool, get_redis_client,
     services::{MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore},
-    utils::{constants::prod, DATABASE_URL, REDIS_HOST_NAME},
+    utils::{constants::prod, init_tracing, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 
 #[tokio::main]
 async fn main() {
+    init_tracing();
+
     // In memory storage
     // let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
     // In DB storage
