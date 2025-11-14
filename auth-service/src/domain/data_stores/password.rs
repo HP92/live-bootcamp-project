@@ -1,15 +1,16 @@
+use color_eyre::eyre::{eyre, Result};
 use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Password(String);
 
 impl Password {
-    pub fn parse(password: &str) -> Result<Password, String> {
+    pub fn parse(password: &str) -> Result<Password> {
         let re = Regex::new(r"^.{8,}$").unwrap();
         if re.is_match(password) {
             Ok(Self(password.to_string()))
         } else {
-            Err("Password doesn't fill the requirements".to_string())
+            Err(eyre!("Password doesn't fill the requirements"))
         }
     }
 
@@ -28,8 +29,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_password_ok() {
         let expected_value = "Asdf1234".to_string();
-        let test_password: Result<crate::domain::Password, String> =
-            crate::domain::Password::parse("Asdf1234");
+        let test_password = crate::domain::Password::parse("Asdf1234");
 
         assert!(test_password.is_ok());
         assert_eq!(expected_value, test_password.unwrap().0)
@@ -41,6 +41,6 @@ mod tests {
         let test_password = crate::domain::Password::parse("Asdf123");
 
         assert!(test_password.is_err());
-        assert_eq!(expected_value, test_password.unwrap_err())
+        assert_eq!(expected_value, test_password.unwrap_err().to_string())
     }
 }

@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use color_eyre::eyre::{Context, Result};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LoginAttemptId(String);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
+    pub fn parse(id: String) -> Result<Self> {
         // Use the `parse_str` function from the `uuid` crate to ensure `id` is a valid UUID
-        let result = Uuid::parse_str(&id);
-        if result.is_ok() {
-            Ok(Self(result.to_owned().unwrap().to_string()))
-        } else {
-            Err("Login Attempt ID doesn't match with UUID format".to_string())
-        }
+        let parsed_id = uuid::Uuid::parse_str(&id)
+            .wrap_err("Login Attempt ID doesn't match with UUID format")?;
+
+        Ok(Self(parsed_id.to_string()))
     }
 }
 
@@ -47,7 +47,7 @@ mod tests {
         let expected_value = "Login Attempt ID doesn't match with UUID format".to_string();
         let test_id = crate::domain::LoginAttemptId::parse("invalid-uuid-format".to_string());
         assert!(test_id.is_err());
-        assert_eq!(expected_value, test_id.unwrap_err())
+        assert_eq!(expected_value, test_id.unwrap_err().to_string())
     }
 
     #[tokio::test]

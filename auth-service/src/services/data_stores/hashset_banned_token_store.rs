@@ -1,3 +1,4 @@
+use color_eyre::eyre::{eyre, Result};
 use std::collections::HashSet;
 
 use crate::domain::{BannedTokenStore, BannedTokenStoreError};
@@ -9,15 +10,17 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
-        if !&self.tokens.insert(token.to_string()) {
-            return Err(BannedTokenStoreError::UnexpectedError);
+    async fn add_token(&mut self, token: String) -> Result<()> {
+        if !self.tokens.insert(token.to_string()) {
+            return Err(
+                BannedTokenStoreError::UnexpectedError(eyre!("Token already exists")).into(),
+            );
         }
 
         Ok(())
     }
 
-    async fn contains_token(&mut self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn contains_token(&mut self, token: &str) -> Result<bool> {
         if self.tokens.contains(token) {
             Ok(self.tokens.contains(token))
         } else {

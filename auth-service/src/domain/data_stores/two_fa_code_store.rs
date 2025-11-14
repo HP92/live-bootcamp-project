@@ -1,4 +1,4 @@
-use crate::domain::{Email, LoginAttemptId, TwoFACode, TwoFACodeStoreError};
+use crate::domain::data_stores::{Email, LoginAttemptId, TwoFACode, TwoFACodeStoreError};
 
 #[async_trait::async_trait]
 pub trait TwoFACodeStore {

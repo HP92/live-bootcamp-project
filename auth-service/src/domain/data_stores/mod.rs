@@ -1,13 +1,25 @@
 mod banned_token_store;
 mod banned_token_store_error;
+mod email;
+mod error;
+mod login_attempt_id;
+mod password;
+mod two_fa_code;
 mod two_fa_code_store;
 mod two_fa_code_store_error;
+mod user;
 mod user_store;
 mod user_store_error;
 
 pub use banned_token_store::*;
 pub use banned_token_store_error::*;
+pub use email::*;
+pub use error::*;
+pub use login_attempt_id::*;
+pub use password::*;
+pub use two_fa_code::*;
 pub use two_fa_code_store::*;
 pub use two_fa_code_store_error::*;
+pub use user::*;
 pub use user_store::*;
 pub use user_store_error::*;

@@ -10,10 +10,15 @@ argon2 = { version = "0.5.3", features = ["std"] }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.7.4" }
 axum-extra = { version = "0.9.2", features = ["cookie"] }
+color-eyre = { version = "0.6.3" }
+chrono = { version = "0.4.35" }
+dotenvy = { version = "0.15.7" }
+thiserror = { version = "1.0.58" }
 tokio = { version = "1.36.1", features = ["full"] }
 tower-http = { version = "0.5.0", features = ["fs",  "cors", "trace"] }
-tracing = { version = "0.1.40" }
-tracing-subscriber = { version = "0.3.18" }
+tracing = { version = "0.1.41" }
+tracing-error = { version = "0.2.0" }
+tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version ="1.0" }
 sqlx = { version = "0.8", features = [ "runtime-tokio-rustls", "postgres", "migrate"] }
@@ -24,8 +29,6 @@ regex = { version =  "1.12.2" }
 reqwest = { version = "0.12.23", default-features = false, features = ["json", "cookies"] }
 validator = { version = "0.16.1" }
 jsonwebtoken = { version = "9.2.0" }
-chrono = { version = "0.4.35" }
-dotenvy = { version = "0.15.7" }
 lazy_static = { version =  "1.4.0" }
 
 [dev-dependencies]

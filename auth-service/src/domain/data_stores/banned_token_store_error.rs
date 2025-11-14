@@ -1,4 +1,8 @@
-#[derive(Debug, PartialEq)]
+use color_eyre::eyre::Report;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum BannedTokenStoreError {
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
 }

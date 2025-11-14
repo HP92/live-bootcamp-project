@@ -1,6 +1,8 @@
 use redis::{Commands, Connection};
 use serde::{Deserialize, Serialize};
 
+use color_eyre::eyre::Context;
+
 use crate::domain::{Email, LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError};
 
 const TEN_MINUTES_IN_SECONDS: u64 = 600;
@@ -21,62 +23,69 @@ impl RedisTwoFACodeStore {
 
 #[async_trait::async_trait]
 impl TwoFACodeStore for RedisTwoFACodeStore {
+    #[tracing::instrument(name = "Adding 2FA code to Redis", skip_all)]
     async fn add_code(
         &mut self,
         email: Email,
         login_attempt_id: LoginAttemptId,
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError> {
-        let two_fa_tuple = TwoFATuple(
-            login_attempt_id.as_ref().to_string(),
-            code.as_ref().to_string(),
-        );
-
-        let two_fa_string = serde_json::to_string(&two_fa_tuple);
-        if two_fa_string.is_err() {
-            return Err(TwoFACodeStoreError::UnexpectedError);
-        }
-
-        if TEN_MINUTES_IN_SECONDS < 0 {
-            return Err(TwoFACodeStoreError::UnexpectedError);
-        }
-
         let key = get_key(&email);
-        if self
+
+        let data = TwoFATuple(
+            login_attempt_id.as_ref().to_owned(),
+            code.as_ref().to_owned(),
+        );
+        let serialized_data = serde_json::to_string(&data)
+            .wrap_err("failed to serialize 2FA tuple")
+            .map_err(TwoFACodeStoreError::UnexpectedError)?;
+
+        let _: () = self
             .conn
-            .set_ex(key, two_fa_string.unwrap(), TEN_MINUTES_IN_SECONDS as u64)
-            .unwrap()
-        {
-            Ok(())
-        } else {
-            Err(TwoFACodeStoreError::UnexpectedError)
-        }
+            .set_ex(&key, serialized_data, TEN_MINUTES_IN_SECONDS)
+            .wrap_err("failed to set 2FA code in Redis")
+            .map_err(TwoFACodeStoreError::UnexpectedError)?;
+
+        Ok(())
     }
 
+    #[tracing::instrument(name = "Removing 2FA code from Redis", skip_all)]
     async fn remove_code(&mut self, email: Email) -> Result<(), TwoFACodeStoreError> {
         let key = get_key(&email);
-        match self.conn.del::<_, i32>(key) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(TwoFACodeStoreError::UnexpectedError),
-        }
+
+        let _: () = self
+            .conn
+            .del(&key)
+            .wrap_err("failed to delete 2FA code from Redis")
+            .map_err(TwoFACodeStoreError::UnexpectedError)?;
+
+        Ok(())
     }
 
+    #[tracing::instrument(name = "Getting 2FA code from Redis", skip_all)]
     async fn get_code(
         &mut self,
         email: &Email,
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
         let key = get_key(email);
-        let result: Result<String, redis::RedisError> = self.conn.get(key);
 
-        match result {
+        match self.conn.get::<_, String>(&key) {
             Ok(value) => {
-                let tuple: TwoFATuple = serde_json::from_str(&value)
-                    .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
+                println!("Retrieved value from Redis: {}", value);
+                let data: TwoFATuple = serde_json::from_str(&value)
+                    .wrap_err("failed to deserialize 2FA tuple")
+                    .map_err(TwoFACodeStoreError::UnexpectedError)?;
 
-                Ok((
-                    LoginAttemptId::parse(tuple.0).unwrap(),
-                    TwoFACode::parse(tuple.1).unwrap(),
-                ))
+                println!("Retrieved value from Redis: {}", value);
+                let login_attempt_id =
+                    LoginAttemptId::parse(data.0).map_err(TwoFACodeStoreError::UnexpectedError)?;
+
+                println!("Retrieved value from Redis: {}", value);
+                let email_code =
+                    TwoFACode::parse(data.1).map_err(TwoFACodeStoreError::UnexpectedError)?;
+
+                println!("Retrieved value from Redis: {}", value);
+                Ok((login_attempt_id, email_code))
             }
             Err(_) => Err(TwoFACodeStoreError::LoginAttemptIdNotFound),
         }

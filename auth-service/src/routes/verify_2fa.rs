@@ -1,5 +1,6 @@
 use axum::{extract::State, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use color_eyre::eyre::eyre;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +19,7 @@ pub struct Verify2FARequest {
     pub two_fa_code: String,
 }
 
+#[tracing::instrument(name = "Verify 2FA", skip_all)]
 pub async fn verify_2fa(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -49,11 +51,21 @@ pub async fn verify_2fa(
 
     let auth_cookie = generate_auth_cookie(email.as_ref().unwrap()).unwrap();
     if auth_cookie.value().is_empty() {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (
+            jar,
+            Err(AuthAPIError::UnexpectedError(eyre!(
+                "Failed to generate auth cookie"
+            ))),
+        );
     }
 
     if two_fa_code_store.remove_code(email.unwrap()).await.is_err() {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (
+            jar,
+            Err(AuthAPIError::UnexpectedError(eyre!(
+                "Failed to remove 2FA code"
+            ))),
+        );
     };
 
     (jar.add(auth_cookie), Ok(StatusCode::OK.into_response()))

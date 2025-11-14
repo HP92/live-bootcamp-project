@@ -1,15 +1,19 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
+use color_eyre::eyre::{eyre, Context, Result};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TwoFACode(String);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self, String> {
-        if code.len() == 6 && code.chars().all(|c| c.is_ascii_digit()) {
+    pub fn parse(code: String) -> Result<Self> {
+        let code_as_u32 = code.parse::<u32>().wrap_err("2FA Code must be a number")?;
+
+        if (100_000..=999_999).contains(&code_as_u32) {
             Ok(Self(code))
         } else {
-            Err("2FA Code must be a 6-digit number".to_string())
+            Err(eyre!("2FA Code must be a 6-digit number"))
         }
     }
 }
@@ -45,10 +49,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_2fa_code_err() {
-        let expected_value = "2FA Code must be a 6-digit number".to_string();
+        let expected_value = "2FA Code must be a number".to_string();
         let test_code = crate::domain::TwoFACode::parse("12345a".to_string());
         assert!(test_code.is_err());
-        assert_eq!(expected_value, test_code.unwrap_err())
+        assert_eq!(expected_value, test_code.unwrap_err().to_string())
     }
 
     #[tokio::test]

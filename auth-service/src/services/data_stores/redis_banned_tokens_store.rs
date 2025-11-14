@@ -1,3 +1,4 @@
+use color_eyre::eyre::{Context, Result};
 use redis::{Commands, Connection};
 
 use crate::{
@@ -20,30 +21,35 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
-        if TOKEN_TTL_SECONDS < 0 {
-            return Err(BannedTokenStoreError::UnexpectedError);
-        }
+    #[tracing::instrument(name = "Add Token to REDIS", skip_all)]
+    async fn add_token(&mut self, token: String) -> Result<()> {
+        let token_key = get_key(token.as_str());
+        let value = true;
+        let ttl: u64 = TOKEN_TTL_SECONDS
+            .try_into()
+            .wrap_err("failed to cast TOKEN_TTL_SECONDS to u64")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
 
-        let key = get_key(&token);
-        if self
+        let _: () = self
             .conn
-            .set_ex(key, true, TOKEN_TTL_SECONDS as u64)
-            .unwrap()
-        {
-            Ok(())
-        } else {
-            Err(BannedTokenStoreError::UnexpectedError)
-        }
+            .set_ex(&token_key, value, ttl)
+            .wrap_err("failed to set banned token in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+
+        Ok(())
     }
 
-    async fn contains_token(&mut self, token: &str) -> Result<bool, BannedTokenStoreError> {
-        let key = get_key(&token);
+    #[tracing::instrument(name = "Check if token is banned in REDIS", skip_all)]
+    async fn contains_token(&mut self, token: &str) -> Result<bool> {
+        let token_key = get_key(token);
 
-        self.conn
-            .get::<_, bool>(key)
-            .map(|is_banned| is_banned)
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)
+        let is_banned: bool = self
+            .conn
+            .exists(&token_key)
+            .wrap_err("failed to check if token exists in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+
+        Ok(is_banned)
     }
 }
 

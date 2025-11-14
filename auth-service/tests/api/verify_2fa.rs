@@ -1,6 +1,5 @@
 use auth_service::{
     domain::{Email, LoginAttemptId, TwoFACode},
-    routes::LoginResponse2FA,
     utils::JWT_COOKIE_NAME,
 };
 use uuid::Uuid;
@@ -10,29 +9,9 @@ use crate::helpers::{get_random_email, TestApp};
 #[tokio::test]
 async fn verify_2fa_returns_200_if_correct_code() {
     let app: TestApp = TestApp::new().await;
+
     let random_email = get_random_email();
-    let create_account = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-            "requires2FA": true
-        }
-    );
-    let response = app.post_signup(&create_account).await;
-    assert_eq!(response.status().as_u16(), 201);
-
-    let login_user = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-        }
-    );
-    let response = app.post_login(&login_user).await;
-    assert_eq!(response.status(), 206);
-
-    let example_email = Email::parse(&random_email.clone());
-    let (login_attempt_id, two_fa_code) =
-        get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
+    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
     let test_case = serde_json::json!(
         {
             "email": random_email,
@@ -103,32 +82,7 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let create_account = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-            "requires2FA": true
-        }
-    );
-    let response = app.post_signup(&create_account).await;
-    assert_eq!(response.status().as_u16(), 201);
-
-    let login_user = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-        }
-    );
-    let response = app.post_login(&login_user).await;
-    assert_eq!(response.status(), 206);
-    let _response_body = response
-        .json::<LoginResponse2FA>()
-        .await
-        .expect("Could not deserialize response body to LoginResponse2FA");
-    let example_email = Email::parse(&random_email.clone());
-
-    let (login_attempt_id, two_fa_code) =
-        get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
+    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
 
     let test_cases = [
         serde_json::json!(
@@ -171,29 +125,7 @@ async fn verify_2fa_returns_401_if_old_code() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let create_account = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-            "requires2FA": true
-        }
-    );
-    let response = app.post_signup(&create_account).await;
-    assert_eq!(response.status().as_u16(), 201);
-
-    // First login to generate 2FA code
-    let first_login = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-        }
-    );
-    let response = app.post_login(&first_login).await;
-    assert_eq!(response.status(), 206);
-
-    let example_email = Email::parse(&random_email.clone());
-    let (first_login_attempt_id, first_two_fa_code) =
-        get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
+    let (first_login_attempt_id, first_two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
 
     // Second login to overwrite 2FA code
     let second_login = serde_json::json!(
@@ -220,29 +152,9 @@ async fn verify_2fa_returns_401_if_old_code() {
 #[tokio::test]
 async fn should_return_401_if_same_code_twice() {
     let app: TestApp = TestApp::new().await;
+
     let random_email = get_random_email();
-    let create_account = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-            "requires2FA": true
-        }
-    );
-    let response = app.post_signup(&create_account).await;
-    assert_eq!(response.status().as_u16(), 201);
-
-    let login_user = serde_json::json!(
-        {
-            "email": random_email.clone(),
-            "password": "Asdf1234@",
-        }
-    );
-    let response = app.post_login(&login_user).await;
-    assert_eq!(response.status(), 206);
-
-    let example_email = Email::parse(&random_email.clone());
-    let (login_attempt_id, two_fa_code) =
-        get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await;
+    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
     let test_case = serde_json::json!(
         {
             "email": random_email,
@@ -289,7 +201,7 @@ async fn verify_2fa_returns_422_if_malformed_input() {
         ),
         serde_json::json!(
             {
-                "2FACode": "123456",
+                "2FACode": "789012",
                 "loginAttemptId": "random_login_attempt_id"
             }
         ),
@@ -307,12 +219,39 @@ async fn verify_2fa_returns_422_if_malformed_input() {
     app.clean_up().await;
 }
 
+async fn setup_user_for_verify_2fa(app: &TestApp, email: String) -> (LoginAttemptId, TwoFACode) {
+    let create_account = serde_json::json!(
+        {
+            "email": email.clone(),
+            "password": "Asdf1234@",
+            "requires2FA": true
+        }
+    );
+    let _ = app.post_signup(&create_account).await;
+
+    let login_user = serde_json::json!(
+        {
+            "email": email.clone(),
+            "password": "Asdf1234@",
+        }
+    );
+    let _ = app.post_login(&login_user).await;
+
+    let example_email = Email::parse(&email.clone());
+    get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await
+}
+
+
 // To avoid locking the resource I am recreating this function to have a smaller scope
 // for the two_fa_code_store
 async fn get_two_fa_code_and_login_attemp(
     app: &TestApp,
     email: &Email,
 ) -> (LoginAttemptId, TwoFACode) {
-    let mut two_fa_code_store = app.two_fa_code_store.write().await;
-    two_fa_code_store.get_code(email).await.unwrap()
+    app.two_fa_code_store
+        .write()
+        .await
+        .get_code(email)
+        .await
+        .unwrap()
 }

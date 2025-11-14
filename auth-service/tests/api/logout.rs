@@ -13,12 +13,14 @@ async fn logout_returns_200_logout_succesful() {
             let response = app.post_logout().await;
             assert_eq!(response.status(), 200);
 
-            let mut banned_token_store = app.banned_token_store.write().await;
-            let is_token_banned = banned_token_store
-                .contains_token(auth_cookie.as_ref())
-                .await
-                .expect("Failed to check if token is banned");
-
+            let is_token_banned;
+            {
+                let mut banned_token_store = app.banned_token_store.write().await;
+                is_token_banned = banned_token_store
+                    .contains_token(auth_cookie.as_ref())
+                    .await
+                    .expect("Failed to check if token is banned");
+            }
             assert!(is_token_banned);
         }
         Err(e) => {

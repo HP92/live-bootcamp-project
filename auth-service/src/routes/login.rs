@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -28,6 +29,7 @@ pub enum LoginResponse {
     TwoFactorAuth(LoginResponse2FA),
 }
 
+#[tracing::instrument(name = "Login", skip_all)]
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -56,6 +58,7 @@ pub async fn login(
     }
 }
 
+#[tracing::instrument(name = "Handle 2FA", skip_all)]
 async fn handle_2fa(
     jar: CookieJar,
     state: &AppState,
@@ -66,28 +69,22 @@ async fn handle_2fa(
 ) {
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
-    let mut two_fa_store = state.two_fa_code_store.write().await;
 
-    if two_fa_store
+    let two_fa_store = &mut state.two_fa_code_store.write().await;
+    if let Err(e) = two_fa_store
         .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
-    };
+        return (jar, Err(AuthAPIError::UnexpectedError(eyre!(e))));
+    }
 
     let email_client = state.email_client_type.write().await;
-    if email_client
-        .send_email(
-            email,
-            "Your Authentication temporary code",
-            two_fa_code.as_ref(),
-        )
+    if let Err(e) = email_client
+        .send_email(email, "2FA Code", two_fa_code.as_ref())
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
-    };
+        return (jar, Err(AuthAPIError::UnexpectedError(eyre!(e))));
+    }
 
     let response = LoginResponse2FA {
         message: "2FA required".to_string(),
@@ -103,6 +100,7 @@ async fn handle_2fa(
     )
 }
 
+#[tracing::instrument(name = "Handle No 2FA", skip_all)]
 async fn handle_no_2fa(
     jar: CookieJar,
     email: &Email,
@@ -110,13 +108,16 @@ async fn handle_no_2fa(
     CookieJar,
     Result<(StatusCode, Json<LoginResponse>), AuthAPIError>,
 ) {
-    let auth_cookie = generate_auth_cookie(email).unwrap();
-    if auth_cookie.value().is_empty() {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+    match generate_auth_cookie(email) {
+        Ok(auth_cookie) => (
+            jar.add(auth_cookie),
+            Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))),
+        ),
+        Err(_) => (
+            jar,
+            Err(AuthAPIError::UnexpectedError(eyre!(
+                "Failed to generate auth cookie"
+            ))),
+        ),
     }
-
-    (
-        jar.add(auth_cookie),
-        Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))),
-    )
 }

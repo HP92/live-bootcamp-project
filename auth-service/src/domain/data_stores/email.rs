@@ -1,15 +1,16 @@
+use color_eyre::eyre::{eyre, Result};
 use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {
-    pub fn parse(address: &str) -> Result<Email, String> {
+    pub fn parse(address: &str) -> Result<Email> {
         let re = Regex::new(r"(?i)^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$").unwrap();
         if re.is_match(address) {
             Ok(Self(address.to_string()))
         } else {
-            Err("Email doesn't fill the requirements".to_string())
+            Err(eyre!("Email doesn't fill the requirements"))
         }
     }
 
@@ -40,6 +41,6 @@ mod tests {
         let test_email = crate::domain::Email::parse("example.com");
 
         assert!(test_email.is_err());
-        assert_eq!(expected_value, test_email.unwrap_err())
+        assert_eq!(expected_value, test_email.unwrap_err().to_string())
     }
 }

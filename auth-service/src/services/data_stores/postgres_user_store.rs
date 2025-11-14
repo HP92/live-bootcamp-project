@@ -1,10 +1,9 @@
-use std::error::Error;
-
 use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
     PasswordVerifier, Version,
 };
 
+use color_eyre::eyre::{eyre, Context, Result};
 use sqlx::PgPool;
 
 use crate::domain::{Email, Password, User, UserStore, UserStoreError};
@@ -28,7 +27,7 @@ impl UserStore for PostgresUserStore {
         } else {
             let hashed_password = compute_password_hash(user.password.as_ref().to_owned())
                 .await
-                .map_err(|_| UserStoreError::UnexpectedError)?;
+                .map_err(UserStoreError::UnexpectedError)?;
 
             sqlx::query!(
                 "INSERT INTO users(email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
@@ -36,36 +35,37 @@ impl UserStore for PostgresUserStore {
                 &hashed_password,
                 user.requires_2fa
             )
-            .fetch_optional(&self.pool)
+            .execute(&self.pool)
             .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+            .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
 
             Ok(())
         }
     }
 
     #[tracing::instrument(name = "Retrieving user from PostgreSQL", skip_all)]
-    async fn get_user(&self, email: &Email) -> Result<&User, UserStoreError> {
-        let row = sqlx::query!(
-            "SELECT email, password_hash, requires_2fa FROM users WHERE email = $1",
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
+        sqlx::query!(
+            r#"
+            SELECT email, password_hash, requires_2fa
+            FROM users
+            WHERE email = $1
+            "#,
             email.as_ref()
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
-
-        match row {
-            Some(row) => {
-                let user = Box::leak(Box::new(User {
-                    email: Email::parse(&row.email).map_err(|_| UserStoreError::UnexpectedError)?,
-                    password: Password::parse(&row.password_hash)
-                        .map_err(|_| UserStoreError::UnexpectedError)?,
-                    requires_2fa: row.requires_2fa,
-                }));
-                Ok(user)
-            }
-            None => Err(UserStoreError::UserNotFound),
-        }
+        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?
+        .map(|row| {
+            Ok(User {
+                email: Email::parse(row.email.as_ref())
+                    .map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?, // Updated!
+                password: Password::parse(row.password_hash.as_ref())
+                    .map_err(|e| UserStoreError::UnexpectedError(eyre!(e)))?, // Updated!
+                requires_2fa: row.requires_2fa,
+            })
+        })
+        .ok_or(UserStoreError::UserNotFound)?
     }
 
     #[tracing::instrument(name = "Validating user credentials in PostgreSQL", skip_all)]
@@ -74,11 +74,7 @@ impl UserStore for PostgresUserStore {
         email: &Email,
         password: &Password,
     ) -> Result<(), UserStoreError> {
-        if let Ok(user) = self.get_user(&email).await {
-            // let hashed_password = compute_password_hash(password.as_ref())
-            //     .await
-            //     .map_err(|_| UserStoreError::UnexpectedError);
-
+        if let Ok(user) = self.get_user(email).await {
             if verify_password_hash(
                 user.password.as_ref().to_owned(),
                 password.as_ref().to_owned(),
@@ -100,17 +96,16 @@ impl UserStore for PostgresUserStore {
 async fn verify_password_hash(
     expected_password_hash: String,
     password_candidate: String,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<()> {
     let current_span: tracing::Span = tracing::Span::current();
     let result = tokio::task::spawn_blocking(move || {
         current_span.in_scope(|| {
-            // New!
             let expected_password_hash: PasswordHash<'_> =
                 PasswordHash::new(&expected_password_hash)?;
 
             Argon2::default()
                 .verify_password(password_candidate.as_bytes(), &expected_password_hash)
-                .map_err(|e| e.into())
+                .wrap_err("failed to verify password hash")
         })
     })
     .await;
@@ -119,11 +114,10 @@ async fn verify_password_hash(
 }
 
 #[tracing::instrument(name = "Computing password hash", skip_all)]
-async fn compute_password_hash(password: String) -> Result<String, Box<dyn Error + Send + Sync>> {
+async fn compute_password_hash(password: String) -> Result<String> {
     let current_span: tracing::Span = tracing::Span::current();
     let result = tokio::task::spawn_blocking(move || {
         current_span.in_scope(|| {
-            // New!
             let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
             let password_hash = Argon2::new(
                 Algorithm::Argon2id,
