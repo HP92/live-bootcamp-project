@@ -1,5 +1,6 @@
 use dotenvy::dotenv;
 use lazy_static::lazy_static;
+use secrecy::Secret;
 use std::env as std_env;
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
@@ -21,13 +22,13 @@ pub mod test {
 }
 
 lazy_static! {
-    pub static ref JWT_SECRET: String = set_token();
+    pub static ref JWT_SECRET: Secret<String> = set_token();
     pub static ref DROPLET_IP: String = set_remote_ip();
-    pub static ref DATABASE_URL: String = set_database_url();
-    pub static ref REDIS_HOST_NAME: String = set_redis_host();
+    pub static ref DATABASE_URL: Secret<String> = set_database_url();
+    pub static ref REDIS_HOST_NAME: Secret<String> = set_redis_host();
 }
 
-fn set_token() -> String {
+fn set_token() -> Secret<String> {
     dotenv().ok();
     let secret =
         std_env::var(env::JWT_SECRET_ENV_VAR).expect("JWT secret must be set in .env file");
@@ -36,7 +37,7 @@ fn set_token() -> String {
         panic!("JWT secret cannot be empty");
     }
 
-    secret
+    Secret::new(secret)
 }
 
 fn set_remote_ip() -> String {
@@ -51,7 +52,7 @@ fn set_remote_ip() -> String {
     remote_ip
 }
 
-fn set_database_url() -> String {
+fn set_database_url() -> Secret<String> {
     dotenv().ok();
     let database_url =
         std_env::var(env::DATABASE_URL_ENV_VAR).expect("DATABASE_URL must be set in .env file");
@@ -60,10 +61,12 @@ fn set_database_url() -> String {
         panic!("DATABASE_URL cannot be empty");
     }
 
-    database_url
+    Secret::new(database_url)
 }
 
-fn set_redis_host() -> String {
+fn set_redis_host() -> Secret<String> {
     dotenv().ok();
-    std_env::var(env::REDIS_HOST_NAME_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned())
+    Secret::new(
+        std_env::var(env::REDIS_HOST_NAME_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned()),
+    )
 }

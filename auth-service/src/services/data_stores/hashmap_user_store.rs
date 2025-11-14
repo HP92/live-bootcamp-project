@@ -45,6 +45,8 @@ impl UserStore for HashmapUserStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use crate::domain::UserStore;
     use crate::domain::{Email, Password, User};
     use crate::services::hashmap_user_store::{HashmapUserStore, UserStoreError};
@@ -55,32 +57,19 @@ mod tests {
     #[tokio::test]
     async fn test_add_user() {
         let mut test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
-
+        let input = setup_user();
         let result = test_subject.add_user(input).await;
-
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_adding_same_user_and_expect_error() {
         let mut test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input = setup_user();
+
         let _ = test_subject.add_user(input).await;
 
-        let input2 = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input2 = setup_user();
         let result = test_subject.add_user(input2).await;
 
         assert!(result.is_err());
@@ -90,20 +79,11 @@ mod tests {
     #[tokio::test]
     async fn test_get_user() {
         let mut test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input = setup_user();
 
         let _ = test_subject.add_user(input).await;
 
-        let expected_user = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
-
+        let expected_user = setup_user();
         let result = test_subject.get_user(&expected_user.email).await;
 
         assert!(result.is_ok());
@@ -112,11 +92,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_user_that_does_not_exist() {
         let test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input = setup_user();
 
         let result = test_subject.get_user(&input.email).await;
 
@@ -126,20 +102,11 @@ mod tests {
     #[tokio::test]
     async fn test_validate_user() {
         let mut test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input = setup_user();
 
         let _ = test_subject.add_user(input).await;
 
-        let expected_input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
-
+        let expected_input = setup_user();
         let result = test_subject
             .validate_user(&expected_input.email, &expected_input.password)
             .await;
@@ -150,17 +117,13 @@ mod tests {
     #[tokio::test]
     async fn test_validate_user_with_invalid_password() {
         let mut test_subject = HashmapUserStore::default();
-        let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&TEST_PASSWORD).unwrap(),
-            true,
-        );
+        let input = setup_user();
 
         let _ = test_subject.add_user(input).await;
 
         let input = User::new(
-            Email::parse(&TEST_EMAIL).unwrap(),
-            Password::parse(&"asdef1234".to_string()).unwrap(),
+            Email::parse(Secret::new(TEST_EMAIL.to_string())).unwrap(),
+            Password::parse(Secret::new("asdef1234".to_string())).unwrap(),
             true,
         );
 
@@ -176,8 +139,8 @@ mod tests {
         let test_subject = HashmapUserStore::default();
 
         let input = User::new(
-            Email::parse(&"test@example.com".to_owned()).unwrap(),
-            Password::parse(&"Asdef1234".to_owned()).unwrap(),
+            Email::parse(Secret::new("test@example.com".to_string())).unwrap(),
+            Password::parse(Secret::new("Asdef1234".to_string())).unwrap(),
             true,
         );
 
@@ -186,5 +149,13 @@ mod tests {
             .await;
 
         assert!(result.is_err());
+    }
+
+    pub fn setup_user() -> User {
+        User::new(
+            Email::parse(Secret::new(TEST_EMAIL.to_string())).unwrap(),
+            Password::parse(Secret::new(TEST_PASSWORD.to_string())).unwrap(),
+            true,
+        )
     }
 }

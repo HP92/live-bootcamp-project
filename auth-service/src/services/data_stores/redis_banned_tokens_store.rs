@@ -1,5 +1,6 @@
 use color_eyre::eyre::{Context, Result};
 use redis::{Commands, Connection};
+use secrecy::{ExposeSecret, Secret};
 
 use crate::{
     domain::{BannedTokenStore, BannedTokenStoreError},
@@ -22,8 +23,8 @@ impl RedisBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     #[tracing::instrument(name = "Add Token to REDIS", skip_all)]
-    async fn add_token(&mut self, token: String) -> Result<()> {
-        let token_key = get_key(token.as_str());
+    async fn add_token(&mut self, token: Secret<String>) -> Result<()> {
+        let token_key = get_key(token.expose_secret());
         let value = true;
         let ttl: u64 = TOKEN_TTL_SECONDS
             .try_into()
@@ -40,8 +41,8 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     #[tracing::instrument(name = "Check if token is banned in REDIS", skip_all)]
-    async fn contains_token(&mut self, token: &str) -> Result<bool> {
-        let token_key = get_key(token);
+    async fn contains_token(&mut self, token: Secret<String>) -> Result<bool> {
+        let token_key = get_key(token.expose_secret());
 
         let is_banned: bool = self
             .conn

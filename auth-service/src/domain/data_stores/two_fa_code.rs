@@ -1,20 +1,24 @@
+use color_eyre::eyre::{eyre, Result};
 use rand::{thread_rng, Rng};
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
 
-use color_eyre::eyre::{eyre, Context, Result};
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TwoFACode(String);
+#[derive(Debug, Clone, Deserialize)]
+pub struct TwoFACode(Secret<String>);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self> {
-        let code_as_u32 = code.parse::<u32>().wrap_err("2FA Code must be a number")?;
-
-        if (100_000..=999_999).contains(&code_as_u32) {
-            Ok(Self(code))
-        } else {
-            Err(eyre!("2FA Code must be a 6-digit number"))
+    pub fn parse(code: Secret<String>) -> Result<Self> {
+        // Check if the code is exactly 6 characters
+        if code.expose_secret().len() != 6 {
+            return Err(eyre!("2FA Code must be a 6-digit number"));
         }
+
+        // Check if all characters are digits
+        if !code.expose_secret().chars().all(|c| c.is_ascii_digit()) {
+            return Err(eyre!("2FA Code must be a number"));
+        }
+
+        Ok(Self(code))
     }
 }
 
@@ -25,32 +29,45 @@ impl Default for TwoFACode {
         let mut rng = thread_rng();
 
         // Generate a 6-character numeric string
-        let code: String = (0..6).map(|_| rng.gen_range(0..10).to_string()).collect();
+        let code = Secret::new((0..6).map(|_| rng.gen_range(0..10).to_string()).collect());
 
         Self(code)
     }
 }
 
-impl AsRef<str> for TwoFACode {
-    fn as_ref(&self) -> &str {
+impl PartialEq for TwoFACode {
+    fn eq(&self, other: &Self) -> bool {
+        // We can use the expose_secret method to expose the secret in a
+        // controlled manner when needed!
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl AsRef<Secret<String>> for TwoFACode {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use secrecy::ExposeSecret;
+
     #[tokio::test]
     async fn test_parse_2fa_code_ok() {
         let expected_value = "123456".to_string();
-        let test_code = crate::domain::TwoFACode::parse("123456".to_string());
+        let test_code = crate::domain::TwoFACode::parse(secrecy::Secret::new("123456".to_string()));
         assert!(test_code.is_ok());
-        assert_eq!(expected_value, test_code.unwrap().0)
+        assert_eq!(
+            expected_value,
+            test_code.unwrap().0.expose_secret().to_string()
+        )
     }
 
     #[tokio::test]
     async fn test_parse_2fa_code_err() {
         let expected_value = "2FA Code must be a number".to_string();
-        let test_code = crate::domain::TwoFACode::parse("12345a".to_string());
+        let test_code = crate::domain::TwoFACode::parse(secrecy::Secret::new("12345a".to_string()));
         assert!(test_code.is_err());
         assert_eq!(expected_value, test_code.unwrap_err().to_string())
     }
@@ -58,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn test_default_2fa_code() {
         let test_code = crate::domain::TwoFACode::default();
-        assert_eq!(6, test_code.0.len());
-        assert!(test_code.0.chars().all(|c| c.is_digit(10)));
+        assert_eq!(6, test_code.0.expose_secret().len());
+        assert!(test_code.0.expose_secret().chars().all(|c| c.is_digit(10)));
     }
 }

@@ -1,7 +1,7 @@
-use redis::{Commands, Connection};
-use serde::{Deserialize, Serialize};
-
 use color_eyre::eyre::Context;
+use redis::{Commands, Connection};
+use secrecy::{ExposeSecret, Secret};
+use serde::{Deserialize, Serialize};
 
 use crate::domain::{Email, LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError};
 
@@ -33,8 +33,8 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         let key = get_key(&email);
 
         let data = TwoFATuple(
-            login_attempt_id.as_ref().to_owned(),
-            code.as_ref().to_owned(),
+            login_attempt_id.as_ref().expose_secret().clone(),
+            code.as_ref().expose_secret().to_owned(),
         );
         let serialized_data = serde_json::to_string(&data)
             .wrap_err("failed to serialize 2FA tuple")
@@ -77,12 +77,12 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
                     .map_err(TwoFACodeStoreError::UnexpectedError)?;
 
                 println!("Retrieved value from Redis: {}", value);
-                let login_attempt_id =
-                    LoginAttemptId::parse(data.0).map_err(TwoFACodeStoreError::UnexpectedError)?;
+                let login_attempt_id = LoginAttemptId::parse(Secret::new(data.0))
+                    .map_err(TwoFACodeStoreError::UnexpectedError)?;
 
                 println!("Retrieved value from Redis: {}", value);
-                let email_code =
-                    TwoFACode::parse(data.1).map_err(TwoFACodeStoreError::UnexpectedError)?;
+                let email_code = TwoFACode::parse(Secret::new(data.1))
+                    .map_err(TwoFACodeStoreError::UnexpectedError)?;
 
                 println!("Retrieved value from Redis: {}", value);
                 Ok((login_attempt_id, email_code))
@@ -93,5 +93,5 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
 }
 
 fn get_key(email: &Email) -> String {
-    format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref())
+    format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref().expose_secret())
 }

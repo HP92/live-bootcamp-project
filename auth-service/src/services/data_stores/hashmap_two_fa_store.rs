@@ -51,9 +51,9 @@ mod tests {
     #[tokio::test]
     async fn test_add_and_get_code() {
         let mut store = setup_store().await;
-        let email = Email::parse("test@example.com").unwrap();
+        let email = Email::parse(secrecy::Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
-        let code = TwoFACode::parse("123456".to_string()).unwrap();
+        let code = TwoFACode::parse(secrecy::Secret::new("123456".to_string())).unwrap();
         store
             .add_code(email.clone(), login_attempt_id.clone(), code.clone())
             .await
@@ -66,9 +66,9 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = setup_store().await;
-        let email = Email::parse("test@example.com").unwrap();
+        let email = Email::parse(secrecy::Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
-        let code = TwoFACode::parse("123456".to_string()).unwrap();
+        let code = TwoFACode::parse(secrecy::Secret::new("123456".to_string())).unwrap();
         store
             .add_code(email.clone(), login_attempt_id, code)
             .await

@@ -2,6 +2,7 @@ use auth_service::{
     domain::{Email, LoginAttemptId, TwoFACode},
     utils::JWT_COOKIE_NAME,
 };
+use secrecy::{ExposeSecret, Secret};
 use uuid::Uuid;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -11,15 +12,17 @@ async fn verify_2fa_returns_200_if_correct_code() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
+    let (login_attempt_id, two_fa_code) =
+        setup_user_for_verify_2fa(&app, random_email.clone()).await;
     let test_case = serde_json::json!(
         {
             "email": random_email,
-            "loginAttemptId": login_attempt_id,
-            "2FACode": two_fa_code.as_ref().to_string()
+            "loginAttemptId": login_attempt_id.as_ref().expose_secret().to_string(),
+            "2FACode": two_fa_code.as_ref().expose_secret().to_string()
         }
     );
     let response = app.post_verify_2fa(&test_case).await;
+
     assert_eq!(response.status(), 200);
     let auth_cookie = response
         .cookies()
@@ -82,13 +85,14 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
+    let (login_attempt_id, two_fa_code) =
+        setup_user_for_verify_2fa(&app, random_email.clone()).await;
 
     let test_cases = [
         serde_json::json!(
             {
                 "email": random_email.clone(),
-                "loginAttemptId": login_attempt_id.clone(),
+                "loginAttemptId": login_attempt_id.as_ref().expose_secret().to_string(),
                 "2FACode": "123456" // incorrect code,
             }
         ),
@@ -96,14 +100,14 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
             {
                 "email": random_email.clone(),
                 "loginAttemptId": Uuid::new_v4(), // incorrect login attempt id
-                "2FACode": two_fa_code.as_ref().to_string() ,
+                "2FACode": two_fa_code.as_ref().expose_secret().to_string() ,
             }
         ),
         serde_json::json!(
             {
                 "email": get_random_email(), // incorrect email
-                "loginAttemptId":login_attempt_id,
-                "2FACode": two_fa_code.as_ref().to_string(),
+                "loginAttemptId": login_attempt_id.as_ref().expose_secret().to_string(),
+                "2FACode": two_fa_code.as_ref().expose_secret().to_string(),
             }
         ),
     ];
@@ -125,7 +129,8 @@ async fn verify_2fa_returns_401_if_old_code() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let (first_login_attempt_id, first_two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
+    let (first_login_attempt_id, first_two_fa_code) =
+        setup_user_for_verify_2fa(&app, random_email.clone()).await;
 
     // Second login to overwrite 2FA code
     let second_login = serde_json::json!(
@@ -140,8 +145,8 @@ async fn verify_2fa_returns_401_if_old_code() {
     let test_case = serde_json::json!(
         {
             "email": random_email,
-            "loginAttemptId": first_login_attempt_id, // using old login attempt id
-            "2FACode": first_two_fa_code.as_ref().to_string()
+            "loginAttemptId": first_login_attempt_id.as_ref().expose_secret().to_string(), // using old login attempt id
+            "2FACode": first_two_fa_code.as_ref().expose_secret().to_string()
         }
     );
     let response = app.post_verify_2fa(&test_case).await;
@@ -154,12 +159,13 @@ async fn should_return_401_if_same_code_twice() {
     let app: TestApp = TestApp::new().await;
 
     let random_email = get_random_email();
-    let (login_attempt_id, two_fa_code) = setup_user_for_verify_2fa(&app, random_email.clone()).await;
+    let (login_attempt_id, two_fa_code) =
+        setup_user_for_verify_2fa(&app, random_email.clone()).await;
     let test_case = serde_json::json!(
         {
             "email": random_email,
-            "loginAttemptId": login_attempt_id.as_ref().to_string(),
-            "2FACode": two_fa_code.as_ref().to_string()
+            "loginAttemptId": login_attempt_id.as_ref().expose_secret().to_string(),
+            "2FACode": two_fa_code.as_ref().expose_secret().to_string()
         }
     );
     let response = app.post_verify_2fa(&test_case).await;
@@ -173,8 +179,8 @@ async fn should_return_401_if_same_code_twice() {
     let test_case = serde_json::json!(
         {
             "email": random_email,
-            "loginAttemptId": login_attempt_id.as_ref().to_string(),
-            "2FACode": two_fa_code.as_ref().to_string()
+            "loginAttemptId": login_attempt_id.as_ref().expose_secret().to_string(),
+            "2FACode": two_fa_code.as_ref().expose_secret().to_string()
         }
     );
     let response = app.post_verify_2fa(&test_case).await;
@@ -237,10 +243,9 @@ async fn setup_user_for_verify_2fa(app: &TestApp, email: String) -> (LoginAttemp
     );
     let _ = app.post_login(&login_user).await;
 
-    let example_email = Email::parse(&email.clone());
+    let example_email = Email::parse(Secret::new(email.clone()));
     get_two_fa_code_and_login_attemp(&app, example_email.as_ref().unwrap()).await
 }
-
 
 // To avoid locking the resource I am recreating this function to have a smaller scope
 // for the two_fa_code_store

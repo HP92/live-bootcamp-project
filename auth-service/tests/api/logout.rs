@@ -1,6 +1,7 @@
 use reqwest::Url;
 
 use auth_service::utils::JWT_COOKIE_NAME;
+use secrecy::Secret;
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -14,10 +15,11 @@ async fn logout_returns_200_logout_succesful() {
             assert_eq!(response.status(), 200);
 
             let is_token_banned;
+            let secret_token = Secret::new(auth_cookie);
             {
                 let mut banned_token_store = app.banned_token_store.write().await;
                 is_token_banned = banned_token_store
-                    .contains_token(auth_cookie.as_ref())
+                    .contains_token(secret_token)
                     .await
                     .expect("Failed to check if token is banned");
             }

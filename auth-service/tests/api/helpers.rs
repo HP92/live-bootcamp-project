@@ -1,18 +1,24 @@
-use auth_service::services::{
-    MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore,
+use auth_service::{
+    app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
+    get_postgres_pool, get_redis_client,
+    services::{MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore},
+    utils::test,
+    utils::{DATABASE_URL, REDIS_HOST_NAME},
+    Application,
 };
-use auth_service::utils::{DATABASE_URL, REDIS_HOST_NAME};
-use auth_service::{get_postgres_pool, get_redis_client};
+
 use reqwest::cookie::Jar;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use auth_service::app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType};
-use auth_service::{utils::test, Application};
+// Global counter for Redis database selection (0-15 are available)
+static REDIS_DB_COUNTER: AtomicU8 = AtomicU8::new(0);
 
 pub struct TestApp {
     pub database_name: String,
@@ -21,12 +27,17 @@ pub struct TestApp {
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
     pub two_fa_code_store: TwoFACodeStoreType,
+    pub redis_db: u8,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         // We are creating a new database for each test case, and we need to ensure each database has a unique name!
         let database_name = Uuid::new_v4().to_string();
+
+        // Get a unique Redis database number (0-15) for this test
+        let redis_db = REDIS_DB_COUNTER.fetch_add(1, Ordering::SeqCst) % 16;
+
         // In memory storage
         // let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         // In DB storage
@@ -35,13 +46,13 @@ impl TestApp {
         // In memory storage
         // let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         // In REDIS storage
-        let redis_con = configure_redis();
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_con)));
+        let redis_conn = configure_redis(redis_db);
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn)));
         // In memory storage
         // let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         // In REDIS storage
-        let conn = configure_redis();
-        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(conn)));
+        let redis_conn = configure_redis(redis_db);
+        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn)));
         let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
 
         let app_state = AppState::new(
@@ -73,11 +84,15 @@ impl TestApp {
             cookie_jar: cookie_jar,
             banned_token_store: banned_token_store,
             two_fa_code_store: two_fa_code_store,
+            redis_db: redis_db,
         }
     }
 
     pub async fn clean_up(&self) {
         delete_database(&self.database_name).await;
+        // Flush the specific Redis database to avoid test interference
+        let mut redis_conn = configure_redis(self.redis_db);
+        let _: Result<(), redis::RedisError> = redis::cmd("FLUSHDB").query(&mut redis_conn);
     }
 
     pub async fn get_root(&self) -> reqwest::Response {
@@ -162,14 +177,14 @@ pub fn get_random_email() -> String {
 }
 
 async fn configure_postgresql(db_name: String) -> PgPool {
-    let postgresql_conn_url = DATABASE_URL.to_owned();
+    let postgresql_conn_url = DATABASE_URL.expose_secret().to_owned();
 
     configure_database(&postgresql_conn_url, &db_name).await;
 
-    let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
+    let postgresql_conn_url_with_db = Secret::new(format!("{}/{}", postgresql_conn_url, db_name));
 
     // Create a new connection pool and return it
-    get_postgres_pool(&postgresql_conn_url_with_db)
+    get_postgres_pool(postgresql_conn_url_with_db)
         .await
         .expect("Failed to create Postgres connection pool!")
 }
@@ -202,17 +217,26 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
         .expect("Failed to migrate the database");
 }
 
-fn configure_redis() -> redis::Connection {
-    get_redis_client(REDIS_HOST_NAME.to_owned())
-        .expect("Failed to get Redis client")
+fn configure_redis(db: u8) -> redis::Connection {
+    let client = get_redis_client(REDIS_HOST_NAME.to_owned()).expect("Failed to get Redis client");
+
+    let mut conn = client
         .get_connection()
-        .expect("Failed to get Redis connection")
+        .expect("Failed to get Redis connection");
+
+    // Select the specific database for this test
+    redis::cmd("SELECT")
+        .arg(db)
+        .query::<()>(&mut conn)
+        .expect("Failed to select Redis database");
+
+    conn
 }
 
 async fn delete_database(db_name: &str) {
-    let postgresql_conn_url: String = DATABASE_URL.to_owned();
+    let postgresql_conn_url: Secret<String> = DATABASE_URL.to_owned();
 
-    let connection_options = PgConnectOptions::from_str(&postgresql_conn_url)
+    let connection_options = PgConnectOptions::from_str(&postgresql_conn_url.expose_secret())
         .expect("Failed to parse PostgreSQL connection string");
 
     let mut connection = PgConnection::connect_with(&connection_options)

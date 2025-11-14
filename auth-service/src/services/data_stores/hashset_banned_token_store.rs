@@ -1,4 +1,5 @@
 use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, Secret};
 use std::collections::HashSet;
 
 use crate::domain::{BannedTokenStore, BannedTokenStoreError};
@@ -10,8 +11,8 @@ pub struct HashsetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<()> {
-        if !self.tokens.insert(token.to_string()) {
+    async fn add_token(&mut self, token: Secret<String>) -> Result<()> {
+        if !self.tokens.insert(token.expose_secret().to_owned()) {
             return Err(
                 BannedTokenStoreError::UnexpectedError(eyre!("Token already exists")).into(),
             );
@@ -20,12 +21,10 @@ impl BannedTokenStore for HashsetBannedTokenStore {
         Ok(())
     }
 
-    async fn contains_token(&mut self, token: &str) -> Result<bool> {
-        if self.tokens.contains(token) {
-            Ok(self.tokens.contains(token))
-        } else {
-            Ok(false)
-        }
+    async fn contains_token(&mut self, token: Secret<String>) -> Result<bool> {
+        let flag = self.tokens.contains(token.expose_secret());
+
+        Ok(flag)
     }
 }
 
@@ -42,14 +41,22 @@ mod tests {
         let token = "sample_token";
 
         // Initially, the token should not be banned
-        let is_banned = store.contains_token(token).await.unwrap();
+        let is_banned = store
+            .contains_token(secrecy::Secret::new(token.to_string()))
+            .await
+            .unwrap();
         assert!(!is_banned, "Token should not be banned initially");
 
         // Add the token to the banned list
-        store.add_token(token.to_string()).await.unwrap();
-
+        store
+            .add_token(secrecy::Secret::new(token.to_string()))
+            .await
+            .unwrap();
         // Now, the token should be banned
-        let is_banned = store.contains_token(token).await.unwrap();
+        let is_banned = store
+            .contains_token(secrecy::Secret::new(token.to_string()))
+            .await
+            .unwrap();
         assert!(is_banned, "Token should be banned after adding");
     }
 }

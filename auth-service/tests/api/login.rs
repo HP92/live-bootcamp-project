@@ -1,6 +1,7 @@
 use crate::helpers::{get_random_email, TestApp};
 
 use auth_service::{domain::Email, routes::LoginResponse2FA, utils::constants::JWT_COOKIE_NAME};
+use secrecy::{ExposeSecret, Secret};
 
 #[tokio::test]
 async fn login_returns_200_if_valid_credentials_and_2fa_disabled() {
@@ -70,7 +71,7 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
 
     let login_attempt_id_len = response_body.login_attempt_id.clone();
     let mut two_fa_store = app.two_fa_code_store.write().await;
-    let example_email = Email::parse(&random_email);
+    let example_email = Email::parse(Secret::new(random_email));
 
     assert_eq!(
         login_attempt_id_len,
@@ -80,7 +81,8 @@ async fn login_returns_206_if_valid_credentials_and_2fa_enabled() {
             .unwrap()
             .0
             .as_ref()
-            .to_string()
+            .expose_secret()
+            .to_owned()
     );
     app.clean_up().await;
 }

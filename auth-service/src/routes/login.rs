@@ -1,6 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::eyre;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -9,10 +10,10 @@ use crate::{
     AppState,
 };
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
+    pub email: Secret<String>,
+    pub password: Secret<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -35,26 +36,35 @@ pub async fn login(
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
 ) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
-    let email = Email::parse(&request.email);
-    let password = Password::parse(&request.password);
-    let user_store = state.user_store.write().await;
+    let email = Email::parse(request.email);
+    let password = Password::parse(request.password);
 
     if email.is_err() || password.is_err() {
         return (jar, Err(AuthAPIError::InvalidCredentials));
     }
 
-    if (user_store
-        .validate_user(email.as_ref().unwrap(), password.as_ref().unwrap())
-        .await)
-        .is_err()
-    {
+    let (user_requires_2fa, validation_result) = {
+        let user_store = state.user_store.write().await;
+
+        let validation = user_store
+            .validate_user(email.as_ref().unwrap(), password.as_ref().unwrap())
+            .await;
+
+        if validation.is_err() {
+            return (jar, Err(AuthAPIError::IncorrectCredentials));
+        }
+
+        let user = user_store.get_user(email.as_ref().unwrap()).await.unwrap();
+        (user.requires_2fa, validation)
+    };
+
+    if validation_result.is_err() {
         return (jar, Err(AuthAPIError::IncorrectCredentials));
     }
 
-    let user = user_store.get_user(email.as_ref().unwrap()).await.unwrap();
-    match user.requires_2fa {
-        true => handle_2fa(jar, &state, &user.email).await,
-        false => handle_no_2fa(jar, &user.email).await,
+    match user_requires_2fa {
+        true => handle_2fa(jar, &state, email.as_ref().unwrap()).await,
+        false => handle_no_2fa(jar, email.as_ref().unwrap()).await,
     }
 }
 
@@ -80,7 +90,7 @@ async fn handle_2fa(
 
     let email_client = state.email_client_type.write().await;
     if let Err(e) = email_client
-        .send_email(email, "2FA Code", two_fa_code.as_ref())
+        .send_email(email, "2FA Code", two_fa_code.as_ref().expose_secret())
         .await
     {
         return (jar, Err(AuthAPIError::UnexpectedError(eyre!(e))));
@@ -88,7 +98,7 @@ async fn handle_2fa(
 
     let response = LoginResponse2FA {
         message: "2FA required".to_string(),
-        login_attempt_id: login_attempt_id.as_ref().to_string(),
+        login_attempt_id: login_attempt_id.as_ref().expose_secret().to_string(),
     };
 
     (
