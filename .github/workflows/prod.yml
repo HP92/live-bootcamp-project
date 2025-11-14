@@ -120,6 +120,8 @@ jobs:
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
           export DROPLET_IP=${{ vars.DROPLET_IP }}
           export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }} 
+          export POSTMARK_SENDER_EMAIL=${{ secrets.POSTMARK_SENDER_EMAIL }}
           docker compose down
           docker compose pull
           docker compose up -d

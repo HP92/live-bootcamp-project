@@ -1,21 +1,30 @@
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
+    domain::Email,
     get_postgres_pool, get_redis_client,
-    services::{MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore},
-    utils::test,
-    utils::{DATABASE_URL, REDIS_HOST_NAME},
+    services::{
+        PostgresUserStore, PostmarkEmailClient, RedisBannedTokenStore, RedisTwoFACodeStore,
+    },
+    utils::{test, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
+};
 
-use reqwest::cookie::Jar;
+use reqwest::{cookie::Jar, Client};
 use secrecy::{ExposeSecret, Secret};
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::str::FromStr;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions},
+    Connection, Executor, PgConnection, PgPool,
+};
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use wiremock::MockServer;
 
 // Global counter for Redis database selection (0-15 are available)
 static REDIS_DB_COUNTER: AtomicU8 = AtomicU8::new(0);
@@ -24,6 +33,7 @@ pub struct TestApp {
     pub database_name: String,
     pub address: String,
     pub http_client: reqwest::Client,
+    pub email_server: MockServer,
     pub cookie_jar: Arc<Jar>,
     pub banned_token_store: BannedTokenStoreType,
     pub two_fa_code_store: TwoFACodeStoreType,
@@ -53,7 +63,14 @@ impl TestApp {
         // In REDIS storage
         let redis_conn = configure_redis(redis_db);
         let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn)));
-        let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
+        // In memory email client
+        // let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
+        // Mock email server
+        let email_server = MockServer::start().await;
+        let base_url = email_server.uri();
+        let email_client_type = Arc::new(RwLock::new(configure_postmark_email_client(
+            base_url.to_string(),
+        )));
 
         let app_state = AppState::new(
             user_store,
@@ -81,6 +98,7 @@ impl TestApp {
             database_name: database_name,
             address: address,
             http_client: http_client,
+            email_server: email_server,
             cookie_jar: cookie_jar,
             banned_token_store: banned_token_store,
             two_fa_code_store: two_fa_code_store,
@@ -231,6 +249,19 @@ fn configure_redis(db: u8) -> redis::Connection {
         .expect("Failed to select Redis database");
 
     conn
+}
+
+fn configure_postmark_email_client(base_url: String) -> PostmarkEmailClient {
+    let postmark_auth_token = Secret::new("auth_token".to_owned());
+
+    let sender = Email::parse(test::email_client::SENDER.to_owned()).unwrap();
+
+    let http_client = Client::builder()
+        .timeout(test::email_client::TIMEOUT)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    PostmarkEmailClient::new(base_url, sender, postmark_auth_token, http_client)
 }
 
 async fn delete_database(db_name: &str) {

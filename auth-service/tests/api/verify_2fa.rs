@@ -4,6 +4,10 @@ use auth_service::{
 };
 use secrecy::{ExposeSecret, Secret};
 use uuid::Uuid;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -11,9 +15,18 @@ use crate::helpers::{get_random_email, TestApp};
 async fn verify_2fa_returns_200_if_correct_code() {
     let app: TestApp = TestApp::new().await;
 
+    // Set up mock BEFORE calling setup_user_for_verify_2fa (which sends email during login)
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     let random_email = get_random_email();
     let (login_attempt_id, two_fa_code) =
         setup_user_for_verify_2fa(&app, random_email.clone()).await;
+
     let test_case = serde_json::json!(
         {
             "email": random_email,
@@ -84,6 +97,14 @@ async fn verify_2fa_returns_400_if_invalid_input() {
 async fn verify_2fa_returns_401_if_incorect_credentials() {
     let app: TestApp = TestApp::new().await;
 
+    // Set up mock BEFORE calling setup_user_for_verify_2fa (which sends email during login)
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     let random_email = get_random_email();
     let (login_attempt_id, two_fa_code) =
         setup_user_for_verify_2fa(&app, random_email.clone()).await;
@@ -127,6 +148,14 @@ async fn verify_2fa_returns_401_if_incorect_credentials() {
 #[tokio::test]
 async fn verify_2fa_returns_401_if_old_code() {
     let app: TestApp = TestApp::new().await;
+
+    // Set up mock BEFORE any login calls (first login in setup + second login below = 2 emails)
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
 
     let random_email = get_random_email();
     let (first_login_attempt_id, first_two_fa_code) =

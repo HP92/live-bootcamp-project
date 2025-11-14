@@ -17,6 +17,8 @@ services:
       DROPLET_IP: ${DROPLET_IP:-localhost}
       DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:-password}@db:5432"
       REDIS_URL: "${REDIS_URL:-redis}"
+      POSTMARK_AUTH_TOKEN: ${POSTMARK_AUTH_TOKEN}
+      POSTMARK_EMAIL_SENDER: ${POSTMARK_EMAIL_SENDER}
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 
     depends_on:

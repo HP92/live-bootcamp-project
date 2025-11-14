@@ -11,14 +11,39 @@ pub mod env {
     pub const DROPLET_IP_ENV_VAR: &str = "DROPLET_IP";
     pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
     pub const REDIS_HOST_NAME_ENV_VAR: &str = "REDIS_URL";
+    pub const POSTMARK_AUTH_TOKEN_ENV_VAR: &str = "POSTMARK_AUTH_TOKEN";
+    pub const POSTMARK_EMAIL_ENV_VAR: &str = "POSTMARK_EMAIL_SENDER";
 }
 
 pub mod prod {
     pub const APP_ADDRESS: &str = "0.0.0.0:3000";
+    pub mod email_client {
+        use lazy_static::lazy_static;
+        use secrecy::Secret;
+        use std::time::Duration;
+
+        use crate::utils::constants::set_postmark_email_sender;
+
+        pub const BASE_URL: &str = "https://api.postmarkapp.com/email";
+        lazy_static! {
+            pub static ref SENDER: Secret<String> = set_postmark_email_sender();
+        }
+        pub const TIMEOUT: Duration = std::time::Duration::from_secs(10);
+    }
 }
 
 pub mod test {
     pub const APP_ADDRESS: &str = "127.0.0.1:0";
+    pub mod email_client {
+        use lazy_static::lazy_static;
+        use secrecy::Secret;
+        use std::time::Duration;
+
+        lazy_static! {
+            pub static ref SENDER: Secret<String> = Secret::new("test@email.com".to_string());
+        }
+        pub const TIMEOUT: Duration = std::time::Duration::from_millis(200);
+    }
 }
 
 lazy_static! {
@@ -26,6 +51,7 @@ lazy_static! {
     pub static ref DROPLET_IP: String = set_remote_ip();
     pub static ref DATABASE_URL: Secret<String> = set_database_url();
     pub static ref REDIS_HOST_NAME: Secret<String> = set_redis_host();
+    pub static ref POSTMARK_AUTH_TOKEN: Secret<String> = set_postmark_auth_token();
 }
 
 fn set_token() -> Secret<String> {
@@ -69,4 +95,18 @@ fn set_redis_host() -> Secret<String> {
     Secret::new(
         std_env::var(env::REDIS_HOST_NAME_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned()),
     )
+}
+
+fn set_postmark_auth_token() -> Secret<String> {
+    dotenv().ok();
+    let token = std_env::var(env::POSTMARK_AUTH_TOKEN_ENV_VAR)
+        .expect("POSTMARK_AUTH_TOKEN must be set in .env file");
+    Secret::new(token)
+}
+
+fn set_postmark_email_sender() -> Secret<String> {
+    dotenv().ok();
+    let sender = std_env::var(env::POSTMARK_EMAIL_ENV_VAR)
+        .expect("POSTMARK_EMAIL_SENDER must be set in .env file");
+    Secret::new(sender)
 }

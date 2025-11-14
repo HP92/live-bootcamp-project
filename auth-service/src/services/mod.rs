@@ -1,5 +1,5 @@
 pub mod data_stores;
-pub mod mock_email_client;
+pub mod email_clients;
 
 pub use data_stores::*;
-pub use mock_email_client::*;
+pub use email_clients::*;

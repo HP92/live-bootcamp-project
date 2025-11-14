@@ -1,12 +1,16 @@
+use reqwest::Client;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use auth_service::{
     app_state::AppState,
+    domain::Email,
     get_postgres_pool, get_redis_client,
-    services::{MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore},
-    utils::{constants::prod, init_tracing, DATABASE_URL, REDIS_HOST_NAME},
+    services::{
+        PostgresUserStore, PostmarkEmailClient, RedisBannedTokenStore, RedisTwoFACodeStore,
+    },
+    utils::{constants::prod, init_tracing, DATABASE_URL, POSTMARK_AUTH_TOKEN, REDIS_HOST_NAME},
     Application,
 };
 
@@ -30,7 +34,10 @@ async fn main() {
     // In REDIS storage
     let redis_conn = configure_redis();
     let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn)));
-    let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
+    // In memory email client
+    // let email_client_type = Arc::new(RwLock::new(MockEmailClient::default()));
+    // In Postmark email client
+    let email_client_type = Arc::new(RwLock::new(configure_postmark_email_client()));
     let app_state = AppState::new(
         user_store,
         banned_token_store,
@@ -65,4 +72,18 @@ fn configure_redis() -> redis::Connection {
         .expect("Failed to get Redis client")
         .get_connection()
         .expect("Failed to get Redis connection")
+}
+
+fn configure_postmark_email_client() -> PostmarkEmailClient {
+    let http_client = Client::builder()
+        .timeout(prod::email_client::TIMEOUT)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    PostmarkEmailClient::new(
+        prod::email_client::BASE_URL.to_owned(),
+        Email::parse(prod::email_client::SENDER.to_owned()).unwrap(),
+        POSTMARK_AUTH_TOKEN.to_owned(),
+        http_client,
+    )
 }
